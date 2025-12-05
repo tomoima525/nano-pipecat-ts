@@ -12,25 +12,32 @@
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts"
   },
-  "keywords": ["ai", "voice", "conversational-ai", "speech-recognition", "text-to-speech", "pipeline"],
+  "keywords": [
+    "ai",
+    "voice",
+    "conversational-ai",
+    "speech-recognition",
+    "text-to-speech",
+    "pipeline"
+  ],
   "author": "Pipecat TypeScript Team",
   "license": "MIT",
   "dependencies": {
-    "ws": "^8.14.2",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.8",
     "@types/node": "^20.9.0",
-    "@types/ws": "^8.5.8",
     "@types/uuid": "^9.0.7",
+    "@types/ws": "^8.5.8",
     "@typescript-eslint/eslint-plugin": "^6.11.0",
     "@typescript-eslint/parser": "^6.11.0",
     "eslint": "^8.53.0",
     "jest": "^29.7.0",
-    "@types/jest": "^29.5.8",
+    "prettier": "^3.1.0",
     "ts-jest": "^29.1.1",
-    "typescript": "^5.2.2",
-    "prettier": "^3.1.0"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"
