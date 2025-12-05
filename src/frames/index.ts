@@ -133,4 +133,3 @@ export enum FrameDirection {
   /** Frame flows from output to input (for interruptions, errors) */
   UPSTREAM = "upstream",
 }
-

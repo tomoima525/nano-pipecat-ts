@@ -228,4 +228,3 @@ export function isStopFrame(frame: unknown): frame is StopFrame {
 export function isMetricsFrame(frame: unknown): frame is MetricsFrame {
   return frame instanceof MetricsFrame;
 }
-

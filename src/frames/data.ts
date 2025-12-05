@@ -425,9 +425,7 @@ export function isTranscriptionFrame(frame: unknown): frame is TranscriptionFram
   return frame instanceof TranscriptionFrame;
 }
 
-export function isInterimTranscriptionFrame(
-  frame: unknown
-): frame is InterimTranscriptionFrame {
+export function isInterimTranscriptionFrame(frame: unknown): frame is InterimTranscriptionFrame {
   return frame instanceof InterimTranscriptionFrame;
 }
 
@@ -439,33 +437,23 @@ export function isImageRawFrame(frame: unknown): frame is ImageRawFrame {
   return frame instanceof ImageRawFrame;
 }
 
-export function isUserStartedSpeakingFrame(
-  frame: unknown
-): frame is UserStartedSpeakingFrame {
+export function isUserStartedSpeakingFrame(frame: unknown): frame is UserStartedSpeakingFrame {
   return frame instanceof UserStartedSpeakingFrame;
 }
 
-export function isUserStoppedSpeakingFrame(
-  frame: unknown
-): frame is UserStoppedSpeakingFrame {
+export function isUserStoppedSpeakingFrame(frame: unknown): frame is UserStoppedSpeakingFrame {
   return frame instanceof UserStoppedSpeakingFrame;
 }
 
-export function isBotStartedSpeakingFrame(
-  frame: unknown
-): frame is BotStartedSpeakingFrame {
+export function isBotStartedSpeakingFrame(frame: unknown): frame is BotStartedSpeakingFrame {
   return frame instanceof BotStartedSpeakingFrame;
 }
 
-export function isBotStoppedSpeakingFrame(
-  frame: unknown
-): frame is BotStoppedSpeakingFrame {
+export function isBotStoppedSpeakingFrame(frame: unknown): frame is BotStoppedSpeakingFrame {
   return frame instanceof BotStoppedSpeakingFrame;
 }
 
-export function isInputTransportMessageFrame(
-  frame: unknown
-): frame is InputTransportMessageFrame {
+export function isInputTransportMessageFrame(frame: unknown): frame is InputTransportMessageFrame {
   return frame instanceof InputTransportMessageFrame;
 }
 
@@ -474,4 +462,3 @@ export function isOutputTransportMessageFrame(
 ): frame is OutputTransportMessageFrame {
   return frame instanceof OutputTransportMessageFrame;
 }
-

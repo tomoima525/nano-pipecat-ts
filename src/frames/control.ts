@@ -122,11 +122,7 @@ export class FunctionCallFrame extends ControlFrame {
   /** Arguments to pass to the function */
   readonly arguments: Record<string, unknown>;
 
-  constructor(
-    callId: string,
-    functionName: string,
-    args: Record<string, unknown>
-  ) {
+  constructor(callId: string, functionName: string, args: Record<string, unknown>) {
     super();
     this.callId = callId;
     this.functionName = functionName;
@@ -294,15 +290,22 @@ export class LLMSetToolsFrame extends ControlFrame {
  */
 export class LLMSetToolChoiceFrame extends ControlFrame {
   /** Tool choice configuration */
-  readonly toolChoice: "auto" | "none" | "required" | { type: "function"; function: { name: string } };
+  readonly toolChoice:
+    | "auto"
+    | "none"
+    | "required"
+    | { type: "function"; function: { name: string } };
 
-  constructor(toolChoice: "auto" | "none" | "required" | { type: "function"; function: { name: string } }) {
+  constructor(
+    toolChoice: "auto" | "none" | "required" | { type: "function"; function: { name: string } }
+  ) {
     super();
     this.toolChoice = toolChoice;
   }
 
   override toString(): string {
-    const choice = typeof this.toolChoice === "string" ? this.toolChoice : this.toolChoice.function.name;
+    const choice =
+      typeof this.toolChoice === "string" ? this.toolChoice : this.toolChoice.function.name;
     return `${this.name}(toolChoice: ${choice})`;
   }
 }
@@ -360,15 +363,11 @@ export function isTTSStoppedFrame(frame: unknown): frame is TTSStoppedFrame {
   return frame instanceof TTSStoppedFrame;
 }
 
-export function isLLMFullResponseStartFrame(
-  frame: unknown
-): frame is LLMFullResponseStartFrame {
+export function isLLMFullResponseStartFrame(frame: unknown): frame is LLMFullResponseStartFrame {
   return frame instanceof LLMFullResponseStartFrame;
 }
 
-export function isLLMFullResponseEndFrame(
-  frame: unknown
-): frame is LLMFullResponseEndFrame {
+export function isLLMFullResponseEndFrame(frame: unknown): frame is LLMFullResponseEndFrame {
   return frame instanceof LLMFullResponseEndFrame;
 }
 
@@ -376,9 +375,7 @@ export function isFunctionCallFrame(frame: unknown): frame is FunctionCallFrame 
   return frame instanceof FunctionCallFrame;
 }
 
-export function isFunctionCallResultFrame(
-  frame: unknown
-): frame is FunctionCallResultFrame {
+export function isFunctionCallResultFrame(frame: unknown): frame is FunctionCallResultFrame {
   return frame instanceof FunctionCallResultFrame;
 }
 
@@ -386,15 +383,11 @@ export function isLLMRunFrame(frame: unknown): frame is LLMRunFrame {
   return frame instanceof LLMRunFrame;
 }
 
-export function isLLMMessagesAppendFrame(
-  frame: unknown
-): frame is LLMMessagesAppendFrame {
+export function isLLMMessagesAppendFrame(frame: unknown): frame is LLMMessagesAppendFrame {
   return frame instanceof LLMMessagesAppendFrame;
 }
 
-export function isLLMMessagesUpdateFrame(
-  frame: unknown
-): frame is LLMMessagesUpdateFrame {
+export function isLLMMessagesUpdateFrame(frame: unknown): frame is LLMMessagesUpdateFrame {
   return frame instanceof LLMMessagesUpdateFrame;
 }
 
@@ -402,9 +395,6 @@ export function isLLMSetToolsFrame(frame: unknown): frame is LLMSetToolsFrame {
   return frame instanceof LLMSetToolsFrame;
 }
 
-export function isLLMConfigureOutputFrame(
-  frame: unknown
-): frame is LLMConfigureOutputFrame {
+export function isLLMConfigureOutputFrame(frame: unknown): frame is LLMConfigureOutputFrame {
   return frame instanceof LLMConfigureOutputFrame;
 }
-

@@ -153,4 +153,3 @@ export function resetFrameCounters(): void {
   frameIdCounter = 0;
   instanceCounters.clear();
 }
-
