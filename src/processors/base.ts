@@ -12,7 +12,14 @@
  * - Lifecycle management (setup/cleanup)
  */
 
-import { Frame, isSystemFrame, isDataFrame, isControlFrame } from "../frames/base";
+import {
+  Frame,
+  isSystemFrame,
+  isDataFrame,
+  isControlFrame,
+  SystemFrame,
+  DataFrame,
+} from "../frames/base";
 import {
   StartFrame,
   CancelFrame,
@@ -87,9 +94,9 @@ export abstract class FrameProcessor {
   public readonly name: string;
 
   /** Priority queue for system frames (processed immediately) */
-  private systemQueue: Frame[] = [];
+  private systemQueue: SystemFrame[] = [];
   /** Queue for data and control frames (processed in order) */
-  private dataQueue: Frame[] = [];
+  private dataQueue: DataFrame[] = [];
 
   /** Reference to the processor upstream in the pipeline */
   public upstreamProcessor?: FrameProcessor;
@@ -98,7 +105,7 @@ export abstract class FrameProcessor {
 
   /** Whether the processor is currently running */
   private running: boolean = false;
-  /** Whether the processor is paused */
+  /** Whether the processor is paused. Only system frames are processed while paused. */
   private paused: boolean = false;
   /** Whether interruptions are allowed */
   private allowInterruptions: boolean = true;
@@ -151,10 +158,10 @@ export abstract class FrameProcessor {
    */
   public queueFrame(frame: Frame): void {
     if (isSystemFrame(frame)) {
-      this.systemQueue.push(frame);
+      this.systemQueue.push(frame as SystemFrame);
       this.log(`Queued system frame: ${frame.toString()}`);
     } else {
-      this.dataQueue.push(frame);
+      this.dataQueue.push(frame as DataFrame);
       this.log(`Queued data/control frame: ${(frame as Frame).toString()}`);
     }
   }
@@ -253,12 +260,6 @@ export abstract class FrameProcessor {
   private async processLoop(): Promise<void> {
     while (!this.shouldStop) {
       try {
-        // Wait briefly if paused
-        if (this.paused) {
-          await this.sleep(10);
-          continue;
-        }
-
         // Process system frames first (priority queue)
         if (this.systemQueue.length > 0) {
           const frame = this.systemQueue.shift()!;
@@ -267,7 +268,7 @@ export abstract class FrameProcessor {
         }
 
         // Process data/control frames
-        if (this.dataQueue.length > 0) {
+        if (!this.paused && this.dataQueue.length > 0) {
           const frame = this.dataQueue.shift()!;
           await this.processFrameInternal(frame);
           continue;
@@ -397,6 +398,13 @@ export abstract class FrameProcessor {
 
     // Then stop this processor
     this.shouldStop = true;
+
+    // Schedule stop() to be called after processing loop exits
+    setImmediate(async () => {
+      if (this.running) {
+        await this.stop();
+      }
+    });
   }
 
   /**
@@ -430,6 +438,9 @@ export abstract class FrameProcessor {
    * Handle FrameProcessorResumeFrame - resume this processor if it matches
    */
   private async handleResumeFrame(frame: FrameProcessorResumeFrame): Promise<void> {
+    this.log(`Received FrameProcessorResumeFrame: ${frame.processorId}`);
+    this.log(`Processor ID: ${this.id}`);
+    this.log(`Processor Name: ${this.name}`);
     if (frame.processorId === this.id || frame.processorId === this.name) {
       this.log("Resuming processor");
       this.paused = false;

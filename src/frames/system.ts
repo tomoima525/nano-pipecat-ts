@@ -5,7 +5,7 @@
  * They are used for pipeline lifecycle management and critical control operations.
  */
 
-import { SystemFrame } from "./base";
+import { Frame, SystemFrame } from "./base";
 
 /**
  * Frame indicating pipeline should start processing.
@@ -205,26 +205,26 @@ export class FrameProcessorResumeFrame extends SystemFrame {
 
 // Type guards for system frames
 
-export function isStartFrame(frame: unknown): frame is StartFrame {
+export function isStartFrame(frame: Frame): frame is StartFrame {
   return frame instanceof StartFrame;
 }
 
-export function isCancelFrame(frame: unknown): frame is CancelFrame {
+export function isCancelFrame(frame: Frame): frame is CancelFrame {
   return frame instanceof CancelFrame;
 }
 
-export function isErrorFrame(frame: unknown): frame is ErrorFrame {
+export function isErrorFrame(frame: Frame): frame is ErrorFrame {
   return frame instanceof ErrorFrame;
 }
 
-export function isInterruptionFrame(frame: unknown): frame is InterruptionFrame {
+export function isInterruptionFrame(frame: Frame): frame is InterruptionFrame {
   return frame instanceof InterruptionFrame;
 }
 
-export function isStopFrame(frame: unknown): frame is StopFrame {
+export function isStopFrame(frame: Frame): frame is StopFrame {
   return frame instanceof StopFrame;
 }
 
-export function isMetricsFrame(frame: unknown): frame is MetricsFrame {
+export function isMetricsFrame(frame: Frame): frame is MetricsFrame {
   return frame instanceof MetricsFrame;
 }

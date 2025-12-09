@@ -7,7 +7,7 @@
  * interruptions.
  */
 
-import { ControlFrame } from "./base";
+import { ControlFrame, Frame } from "./base";
 
 /**
  * Frame indicating processing completion.
@@ -351,50 +351,50 @@ export class TTSUpdateSettingsFrame extends ControlFrame {
 
 // Type guards for control frames
 
-export function isEndFrame(frame: unknown): frame is EndFrame {
+export function isEndFrame(frame: Frame): frame is EndFrame {
   return frame instanceof EndFrame;
 }
 
-export function isTTSStartedFrame(frame: unknown): frame is TTSStartedFrame {
+export function isTTSStartedFrame(frame: Frame): frame is TTSStartedFrame {
   return frame instanceof TTSStartedFrame;
 }
 
-export function isTTSStoppedFrame(frame: unknown): frame is TTSStoppedFrame {
+export function isTTSStoppedFrame(frame: Frame): frame is TTSStoppedFrame {
   return frame instanceof TTSStoppedFrame;
 }
 
-export function isLLMFullResponseStartFrame(frame: unknown): frame is LLMFullResponseStartFrame {
+export function isLLMFullResponseStartFrame(frame: Frame): frame is LLMFullResponseStartFrame {
   return frame instanceof LLMFullResponseStartFrame;
 }
 
-export function isLLMFullResponseEndFrame(frame: unknown): frame is LLMFullResponseEndFrame {
+export function isLLMFullResponseEndFrame(frame: Frame): frame is LLMFullResponseEndFrame {
   return frame instanceof LLMFullResponseEndFrame;
 }
 
-export function isFunctionCallFrame(frame: unknown): frame is FunctionCallFrame {
+export function isFunctionCallFrame(frame: Frame): frame is FunctionCallFrame {
   return frame instanceof FunctionCallFrame;
 }
 
-export function isFunctionCallResultFrame(frame: unknown): frame is FunctionCallResultFrame {
+export function isFunctionCallResultFrame(frame: Frame): frame is FunctionCallResultFrame {
   return frame instanceof FunctionCallResultFrame;
 }
 
-export function isLLMRunFrame(frame: unknown): frame is LLMRunFrame {
+export function isLLMRunFrame(frame: Frame): frame is LLMRunFrame {
   return frame instanceof LLMRunFrame;
 }
 
-export function isLLMMessagesAppendFrame(frame: unknown): frame is LLMMessagesAppendFrame {
+export function isLLMMessagesAppendFrame(frame: Frame): frame is LLMMessagesAppendFrame {
   return frame instanceof LLMMessagesAppendFrame;
 }
 
-export function isLLMMessagesUpdateFrame(frame: unknown): frame is LLMMessagesUpdateFrame {
+export function isLLMMessagesUpdateFrame(frame: Frame): frame is LLMMessagesUpdateFrame {
   return frame instanceof LLMMessagesUpdateFrame;
 }
 
-export function isLLMSetToolsFrame(frame: unknown): frame is LLMSetToolsFrame {
+export function isLLMSetToolsFrame(frame: Frame): frame is LLMSetToolsFrame {
   return frame instanceof LLMSetToolsFrame;
 }
 
-export function isLLMConfigureOutputFrame(frame: unknown): frame is LLMConfigureOutputFrame {
+export function isLLMConfigureOutputFrame(frame: Frame): frame is LLMConfigureOutputFrame {
   return frame instanceof LLMConfigureOutputFrame;
 }

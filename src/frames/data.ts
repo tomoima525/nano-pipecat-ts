@@ -6,7 +6,7 @@
  * to user interruptions and are processed in the order they are received.
  */
 
-import { DataFrame, formatPts } from "./base";
+import { DataFrame, formatPts, Frame } from "./base";
 
 /**
  * Audio format configuration for audio frames
@@ -405,60 +405,58 @@ export class OutputTransportMessageUrgentFrame extends OutputTransportMessageFra
 
 // Type guards for data frames
 
-export function isInputAudioRawFrame(frame: unknown): frame is InputAudioRawFrame {
+export function isInputAudioRawFrame(frame: Frame): frame is InputAudioRawFrame {
   return frame instanceof InputAudioRawFrame;
 }
 
-export function isOutputAudioRawFrame(frame: unknown): frame is OutputAudioRawFrame {
+export function isOutputAudioRawFrame(frame: Frame): frame is OutputAudioRawFrame {
   return frame instanceof OutputAudioRawFrame;
 }
 
-export function isTTSAudioRawFrame(frame: unknown): frame is TTSAudioRawFrame {
+export function isTTSAudioRawFrame(frame: Frame): frame is TTSAudioRawFrame {
   return frame instanceof TTSAudioRawFrame;
 }
 
-export function isTextFrame(frame: unknown): frame is TextFrame {
+export function isTextFrame(frame: Frame): frame is TextFrame {
   return frame instanceof TextFrame;
 }
 
-export function isTranscriptionFrame(frame: unknown): frame is TranscriptionFrame {
+export function isTranscriptionFrame(frame: Frame): frame is TranscriptionFrame {
   return frame instanceof TranscriptionFrame;
 }
 
-export function isInterimTranscriptionFrame(frame: unknown): frame is InterimTranscriptionFrame {
+export function isInterimTranscriptionFrame(frame: Frame): frame is InterimTranscriptionFrame {
   return frame instanceof InterimTranscriptionFrame;
 }
 
-export function isLLMTextFrame(frame: unknown): frame is LLMTextFrame {
+export function isLLMTextFrame(frame: Frame): frame is LLMTextFrame {
   return frame instanceof LLMTextFrame;
 }
 
-export function isImageRawFrame(frame: unknown): frame is ImageRawFrame {
+export function isImageRawFrame(frame: Frame): frame is ImageRawFrame {
   return frame instanceof ImageRawFrame;
 }
 
-export function isUserStartedSpeakingFrame(frame: unknown): frame is UserStartedSpeakingFrame {
+export function isUserStartedSpeakingFrame(frame: Frame): frame is UserStartedSpeakingFrame {
   return frame instanceof UserStartedSpeakingFrame;
 }
 
-export function isUserStoppedSpeakingFrame(frame: unknown): frame is UserStoppedSpeakingFrame {
+export function isUserStoppedSpeakingFrame(frame: Frame): frame is UserStoppedSpeakingFrame {
   return frame instanceof UserStoppedSpeakingFrame;
 }
 
-export function isBotStartedSpeakingFrame(frame: unknown): frame is BotStartedSpeakingFrame {
+export function isBotStartedSpeakingFrame(frame: Frame): frame is BotStartedSpeakingFrame {
   return frame instanceof BotStartedSpeakingFrame;
 }
 
-export function isBotStoppedSpeakingFrame(frame: unknown): frame is BotStoppedSpeakingFrame {
+export function isBotStoppedSpeakingFrame(frame: Frame): frame is BotStoppedSpeakingFrame {
   return frame instanceof BotStoppedSpeakingFrame;
 }
 
-export function isInputTransportMessageFrame(frame: unknown): frame is InputTransportMessageFrame {
+export function isInputTransportMessageFrame(frame: Frame): frame is InputTransportMessageFrame {
   return frame instanceof InputTransportMessageFrame;
 }
 
-export function isOutputTransportMessageFrame(
-  frame: unknown
-): frame is OutputTransportMessageFrame {
+export function isOutputTransportMessageFrame(frame: Frame): frame is OutputTransportMessageFrame {
   return frame instanceof OutputTransportMessageFrame;
 }
