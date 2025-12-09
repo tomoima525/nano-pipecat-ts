@@ -61,6 +61,7 @@ describe("FrameProcessor", () => {
   let activeProcessors: FrameProcessor[] = [];
 
   beforeEach(() => {
+    jest.useFakeTimers();
     resetFrameCounters();
     resetProcessorIdCounter();
     activeProcessors = [];
@@ -76,6 +77,7 @@ describe("FrameProcessor", () => {
       }
     }
     activeProcessors = [];
+    jest.useRealTimers();
   });
 
   // Helper function to start a processor and track it for cleanup
@@ -85,8 +87,10 @@ describe("FrameProcessor", () => {
   };
 
   // Helper to advance timers and process microtasks
-  const advanceTime = async (ms: number): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, ms));
+  const advanceTime = async (ms: number) => {
+    jest.advanceTimersByTime(ms);
+    await Promise.resolve();
+    await Promise.resolve();
   };
 
   describe("Initialization", () => {
@@ -185,7 +189,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor.stop();
 
@@ -204,7 +208,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor.stop();
 
@@ -227,7 +231,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor2);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor1.stop();
       await processor2.stop();
@@ -248,7 +252,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor2);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor1.stop();
       await processor2.stop();
@@ -270,7 +274,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor2);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor1.stop();
       await processor2.stop();
@@ -291,7 +295,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor);
 
       // Wait for StartFrame to be processed
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Queue data frames and cancel frame
       processor.queueFrame(textFrame1);
@@ -299,7 +303,7 @@ describe("FrameProcessor", () => {
       processor.queueFrame(cancelFrame);
 
       // Wait for CancelFrame to be processed
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor.stop();
 
@@ -322,7 +326,7 @@ describe("FrameProcessor", () => {
       processor.queueFrame(textFrame1);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Queue interruption frame (should clear data queue)
       processor.queueFrame(interruptionFrame);
@@ -331,7 +335,7 @@ describe("FrameProcessor", () => {
       processor.queueFrame(textFrame2);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor.stop();
 
@@ -351,7 +355,7 @@ describe("FrameProcessor", () => {
       processor.queueFrame(stopFrame);
 
       // Wait for processing - StopFrame sets shouldStop flag and loop will exit
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Processor should have stopped itself
       const state = processor.getState();
@@ -373,7 +377,7 @@ describe("FrameProcessor", () => {
       processor.queueFrame(pauseFrame);
 
       // Wait for pause to be processed
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const state = processor.getState();
       expect(state.paused).toBe(true);
@@ -382,7 +386,7 @@ describe("FrameProcessor", () => {
       processor.queueFrame(textFrame);
 
       // Wait
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Frame should not be processed yet
       expect(processor.collectedFrames).not.toContain(textFrame);
@@ -403,7 +407,7 @@ describe("FrameProcessor", () => {
 
       // Pause
       processor.queueFrame(pauseFrame);
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const pausedState = processor.getState();
       expect(pausedState.paused).toBe(true);
@@ -412,14 +416,14 @@ describe("FrameProcessor", () => {
       processor.queueFrame(textFrame);
 
       // Verify frame is queued but not processed yet
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
       expect(processor.collectedFrames).not.toContain(textFrame);
 
       // Resume
       processor.queueFrame(resumeFrame);
 
       // Wait longer for frame to be processed after resume
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // Verify processor resumed
       expect(processor.getState().paused).toBe(false);
@@ -445,7 +449,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor2);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor1.stop();
       await processor2.stop();
@@ -473,7 +477,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor);
 
       // Wait for processing
-      await advanceTime(100);
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       await processor.stop();
 
@@ -542,7 +546,7 @@ describe("FrameProcessor", () => {
       await startProcessor(processor2);
 
       // Wait for processing
-      await advanceTime(50);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       await processor1.stop();
       await processor2.stop();
