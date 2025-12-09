@@ -11,6 +11,7 @@ This specification outlines the design and implementation requirements for a min
 The frame system is the fundamental data unit that flows through the entire pipeline.
 
 #### Base Frame Interface
+
 ```typescript
 interface Frame {
   id: string;
@@ -23,12 +24,14 @@ interface Frame {
 #### Frame Categories
 
 **System Frames** (High Priority)
+
 - `StartFrame`: Pipeline initialization
 - `CancelFrame`: Operation cancellation
 - `ErrorFrame`: Error propagation
 - `InterruptionFrame`: User interruption handling
 
 **Data Frames** (Content Carriers)
+
 - `InputAudioRawFrame`: Raw audio input data
 - `OutputAudioRawFrame`: Processed audio output
 - `TextFrame`: Text content
@@ -37,6 +40,7 @@ interface Frame {
 - `LLMResponseEndFrame`: LLM response completion
 
 **Control Frames** (Flow Control)
+
 - `EndFrame`: Processing completion
 - `TTSStartFrame`: TTS processing start
 - `TTSStopFrame`: TTS processing stop
@@ -50,15 +54,15 @@ abstract class FrameProcessor {
   // Priority queues for different frame types
   private systemQueue: Frame[] = [];
   private dataQueue: Frame[] = [];
-  
+
   // Processor linking
   public upstreamProcessor?: FrameProcessor;
   public downstreamProcessor?: FrameProcessor;
-  
+
   // Core methods
   abstract processFrame(frame: Frame): Promise<void>;
   public queueFrame(frame: Frame): void;
-  public pushFrame(frame: Frame, direction: 'upstream' | 'downstream'): void;
+  public pushFrame(frame: Frame, direction: "upstream" | "downstream"): void;
   public link(processor: FrameProcessor): void;
   public setup(): Promise<void>;
   public cleanup(): Promise<void>;
@@ -66,6 +70,7 @@ abstract class FrameProcessor {
 ```
 
 #### Key Features
+
 - Bidirectional frame flow (upstream/downstream)
 - Priority queuing (system frames bypass normal queues)
 - Async processing with concurrency control
@@ -79,12 +84,12 @@ class Pipeline {
   private processors: FrameProcessor[] = [];
   private source: PipelineSource;
   private sink: PipelineSink;
-  
+
   constructor(processors: FrameProcessor[]) {
     // Link processors sequentially
     // Setup source and sink
   }
-  
+
   public async start(): Promise<void>;
   public async stop(): Promise<void>;
   public pushFrame(frame: Frame): void;
@@ -102,14 +107,15 @@ class PipelineSink extends FrameProcessor {
 ### 4. Service Interfaces
 
 #### STT Service (Speech-to-Text)
+
 ```typescript
 abstract class STTService extends FrameProcessor {
   abstract runSTT(audio: Uint8Array): Promise<string>;
-  
+
   protected async processFrame(frame: Frame): Promise<void> {
     if (frame instanceof InputAudioRawFrame) {
       const transcription = await this.runSTT(frame.audio);
-      this.pushFrame(new TranscriptionFrame(transcription), 'downstream');
+      this.pushFrame(new TranscriptionFrame(transcription), "downstream");
     }
   }
 }
@@ -120,16 +126,17 @@ class DeepgramSTTService extends STTService {
 ```
 
 #### TTS Service (Text-to-Speech)
+
 ```typescript
 abstract class TTSService extends FrameProcessor {
   abstract runTTS(text: string): Promise<Uint8Array>;
-  
+
   protected async processFrame(frame: Frame): Promise<void> {
     if (frame instanceof TextFrame) {
-      this.pushFrame(new TTSStartFrame(), 'downstream');
+      this.pushFrame(new TTSStartFrame(), "downstream");
       const audio = await this.runTTS(frame.text);
-      this.pushFrame(new OutputAudioRawFrame(audio), 'downstream');
-      this.pushFrame(new TTSStopFrame(), 'downstream');
+      this.pushFrame(new OutputAudioRawFrame(audio), "downstream");
+      this.pushFrame(new TTSStopFrame(), "downstream");
     }
   }
 }
@@ -140,19 +147,20 @@ class CartesiaTTSService extends TTSService {
 ```
 
 #### LLM Service (Language Model)
+
 ```typescript
 abstract class LLMService extends FrameProcessor {
   protected context: string[] = [];
-  
+
   abstract runLLM(messages: ChatMessage[]): Promise<string>;
-  
+
   protected async processFrame(frame: Frame): Promise<void> {
     if (frame instanceof TranscriptionFrame) {
       this.context.push(frame.text);
-      this.pushFrame(new LLMResponseStartFrame(), 'downstream');
+      this.pushFrame(new LLMResponseStartFrame(), "downstream");
       const response = await this.runLLM(this.buildMessages());
-      this.pushFrame(new TextFrame(response), 'downstream');
-      this.pushFrame(new LLMResponseEndFrame(), 'downstream');
+      this.pushFrame(new TextFrame(response), "downstream");
+      this.pushFrame(new LLMResponseEndFrame(), "downstream");
     }
   }
 }
@@ -168,10 +176,10 @@ Voice Activity Detection with state machine implementation.
 
 ```typescript
 enum VADState {
-  QUIET = 'quiet',
-  STARTING = 'starting', 
-  SPEAKING = 'speaking',
-  STOPPING = 'stopping'
+  QUIET = "quiet",
+  STARTING = "starting",
+  SPEAKING = "speaking",
+  STOPPING = "stopping",
 }
 
 class VADAnalyzer extends FrameProcessor {
@@ -179,11 +187,11 @@ class VADAnalyzer extends FrameProcessor {
   private volumeThreshold: number = 0.01;
   private startFrames: number = 3;
   private stopFrames: number = 10;
-  
+
   public analyzeAudio(buffer: Uint8Array): VADState {
     const volume = this.calculateVolume(buffer);
     const isSpeech = volume > this.volumeThreshold;
-    
+
     // State machine logic
     switch (this.state) {
       case VADState.QUIET:
@@ -199,10 +207,10 @@ class VADAnalyzer extends FrameProcessor {
         // Transition to quiet after consistent silence
         break;
     }
-    
+
     return this.state;
   }
-  
+
   private calculateVolume(buffer: Uint8Array): number {
     // RMS volume calculation
   }
@@ -220,17 +228,17 @@ abstract class BaseTransport extends FrameProcessor {
 class WebSocketTransport extends BaseTransport {
   private ws: WebSocket;
   private audioContext: AudioContext;
-  
+
   constructor(url: string, audioConfig: AudioConfig) {
     // WebSocket setup
     // WebAudio API initialization
   }
-  
+
   async *input(): AsyncGenerator<Frame> {
     // Yield audio frames from microphone
     // Handle WebSocket messages
   }
-  
+
   async output(frame: Frame): Promise<void> {
     // Send audio to speakers
     // Send WebSocket messages
@@ -247,7 +255,7 @@ class WebSocketTransport extends BaseTransport {
    - Frame serialization for network transport
    - Priority queuing system
 
-2. **Pipeline Architecture** 
+2. **Pipeline Architecture**
    - FrameProcessor base class with async processing
    - Pipeline orchestration and lifecycle management
    - Bidirectional frame flow
@@ -255,7 +263,7 @@ class WebSocketTransport extends BaseTransport {
 3. **Core Services**
    - One STT implementation (Deepgram)
    - One TTS implementation (Cartesia)
-   - One LLM implementation (OpenAI)
+   - One LLM implementation (Grok)
 
 4. **Audio Processing**
    - Basic VAD using volume detection
@@ -316,11 +324,11 @@ src/
 ```typescript
 // Simple conversational pipeline
 const pipeline = new Pipeline([
-  new WebSocketTransport('ws://localhost:8080'),
+  new WebSocketTransport("ws://localhost:8080"),
   new VADAnalyzer(),
-  new DeepgramSTTService({ apiKey: 'xxx' }),
-  new OpenAILLMService({ apiKey: 'xxx' }),
-  new CartesiaTTSService({ apiKey: 'xxx' })
+  new DeepgramSTTService({ apiKey: "xxx" }),
+  new OpenAILLMService({ apiKey: "xxx" }),
+  new CartesiaTTSService({ apiKey: "xxx" }),
 ]);
 
 await pipeline.start();
@@ -329,26 +337,31 @@ await pipeline.start();
 ## Implementation Phases
 
 ### Phase 1: Core Infrastructure
+
 - Frame system and base classes
 - FrameProcessor architecture
 - Pipeline orchestration
 
 ### Phase 2: Audio Processing
+
 - VAD implementation
 - WebAudio API integration
 - Basic audio utilities
 
 ### Phase 3: Services
+
 - Service base classes
 - One implementation each (STT/TTS/LLM)
 - API integration
 
 ### Phase 4: Transport
+
 - WebSocket transport
 - Audio input/output
 - Real-time communication
 
 ### Phase 5: Integration & Testing
+
 - End-to-end pipeline testing
 - Example applications
 - Documentation

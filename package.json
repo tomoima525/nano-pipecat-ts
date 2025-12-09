@@ -20,7 +20,7 @@
     "text-to-speech",
     "pipeline"
   ],
-  "author": "Pipecat TypeScript Team",
+  "author": "Tomo (tomoima525@gmail.com)",
   "license": "MIT",
   "dependencies": {
     "uuid": "^9.0.1",
