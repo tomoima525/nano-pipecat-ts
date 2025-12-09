@@ -58,10 +58,31 @@ class ErrorProcessor extends FrameProcessor {
 }
 
 describe("FrameProcessor", () => {
+  let activeProcessors: FrameProcessor[] = [];
+
   beforeEach(() => {
     resetFrameCounters();
     resetProcessorIdCounter();
+    activeProcessors = [];
   });
+
+  afterEach(async () => {
+    // Stop all active processors to prevent hanging
+    for (const processor of activeProcessors) {
+      try {
+        await processor.stop();
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+    }
+    activeProcessors = [];
+  });
+
+  // Helper function to start a processor and track it for cleanup
+  const startProcessor = async (processor: FrameProcessor) => {
+    await processor.start();
+    activeProcessors.push(processor);
+  };
 
   describe("Initialization", () => {
     it("should create processor with auto-generated ID", () => {
@@ -156,7 +177,7 @@ describe("FrameProcessor", () => {
       const textFrame = new TextFrame("test");
 
       processor.queueFrame(textFrame);
-      await processor.start();
+      await startProcessor(processor);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -175,7 +196,7 @@ describe("FrameProcessor", () => {
       processor.queueFrame(textFrame);
       processor.queueFrame(cancelFrame);
 
-      await processor.start();
+      await startProcessor(processor);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -198,8 +219,8 @@ describe("FrameProcessor", () => {
       const textFrame = new TextFrame("test");
 
       processor1.queueFrame(textFrame);
-      await processor1.start();
-      await processor2.start();
+      await startProcessor(processor1);
+      await startProcessor(processor2);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -219,8 +240,8 @@ describe("FrameProcessor", () => {
       const textFrame = new TextFrame("test");
 
       processor2.queueFrame(textFrame);
-      await processor1.start();
-      await processor2.start();
+      await startProcessor(processor1);
+      await startProcessor(processor2);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -238,7 +259,7 @@ describe("FrameProcessor", () => {
       const startFrame = new StartFrame({ allowInterruptions: false });
 
       processor.queueFrame(startFrame);
-      await processor.start();
+      await startProcessor(processor);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -257,7 +278,7 @@ describe("FrameProcessor", () => {
       const cancelFrame = new CancelFrame();
 
       processor.queueFrame(startFrame);
-      await processor.start();
+      await startProcessor(processor);
 
       // Wait for StartFrame to be processed
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -283,7 +304,7 @@ describe("FrameProcessor", () => {
       const interruptionFrame = new InterruptionFrame();
 
       processor.queueFrame(startFrame);
-      await processor.start();
+      await startProcessor(processor);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -302,7 +323,7 @@ describe("FrameProcessor", () => {
       const processor = new CollectorProcessor({ enableLogging: false });
       const stopFrame = new StopFrame();
 
-      await processor.start();
+      await startProcessor(processor);
       processor.queueFrame(stopFrame);
 
       // Wait for processing
@@ -322,7 +343,7 @@ describe("FrameProcessor", () => {
       const pauseFrame = new FrameProcessorPauseFrame("test-processor");
       const textFrame = new TextFrame("test");
 
-      await processor.start();
+      await startProcessor(processor);
 
       processor.queueFrame(pauseFrame);
 
@@ -353,7 +374,7 @@ describe("FrameProcessor", () => {
       const resumeFrame = new FrameProcessorResumeFrame("test-processor");
       const textFrame = new TextFrame("test");
 
-      await processor.start();
+      await startProcessor(processor);
 
       // Pause
       processor.queueFrame(pauseFrame);
@@ -384,8 +405,8 @@ describe("FrameProcessor", () => {
       const errorFrame = new TextFrame("ERROR");
 
       processor1.queueFrame(errorFrame);
-      await processor1.start();
-      await processor2.start();
+      await startProcessor(processor1);
+      await startProcessor(processor2);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -413,7 +434,7 @@ describe("FrameProcessor", () => {
       processor.queueFrame(textFrame1);
       processor.queueFrame(textFrame2);
 
-      await processor.start();
+      await startProcessor(processor);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -442,7 +463,7 @@ describe("FrameProcessor", () => {
       }
 
       const processor = new SetupProcessor();
-      await processor.start();
+      await startProcessor(processor);
       await processor.stop();
 
       expect(processor.setupCalled).toBe(true);
@@ -462,7 +483,7 @@ describe("FrameProcessor", () => {
       }
 
       const processor = new CleanupProcessor();
-      await processor.start();
+      await startProcessor(processor);
       await processor.stop();
 
       expect(processor.cleanupCalled).toBe(true);
@@ -479,8 +500,8 @@ describe("FrameProcessor", () => {
       const endFrame = new EndFrame();
 
       processor1.queueFrame(endFrame);
-      await processor1.start();
-      await processor2.start();
+      await startProcessor(processor1);
+      await startProcessor(processor2);
 
       // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 50));
