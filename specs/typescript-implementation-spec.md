@@ -263,7 +263,7 @@ class WebSocketTransport extends BaseTransport {
 3. **Core Services**
    - One STT implementation (Deepgram)
    - One TTS implementation (Cartesia)
-   - One LLM implementation (Grok)
+   - Two LLM implementation (OpenAI/Grok)
 
 4. **Audio Processing**
    - Basic VAD using volume detection
