@@ -155,8 +155,9 @@ export abstract class FrameProcessor {
    * System frames are added to the priority queue, other frames to the data queue.
    *
    * @param frame - The frame to queue
+   * @param direction - Optional direction hint for bidirectional processors(TODO: implement)
    */
-  public queueFrame(frame: Frame): void {
+  public queueFrame(frame: Frame, direction?: FrameDirection): void {
     if (isSystemFrame(frame)) {
       this.systemQueue.push(frame as SystemFrame);
       this.log(`Queued system frame: ${frame.toString()}`);
@@ -178,7 +179,7 @@ export abstract class FrameProcessor {
 
     if (target) {
       this.log(`Pushing ${frame.name} ${direction}`);
-      target.queueFrame(frame);
+      target.queueFrame(frame, direction);
     } else {
       this.log(`No ${direction} processor, dropping frame: ${frame.name}`);
     }

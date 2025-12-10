@@ -15,47 +15,13 @@ import {
 } from "../frames/system";
 import { EndFrame } from "../frames/control";
 import { TextFrame } from "../frames/data";
-
-// Test helper: Mock processor that collects frames
-class CollectorProcessor extends FrameProcessor {
-  public collectedFrames: Frame[] = [];
-
-  async processFrame(frame: Frame): Promise<void> {
-    this.collectedFrames.push(frame);
-  }
-
-  getCollected(): Frame[] {
-    return this.collectedFrames;
-  }
-
-  clear(): void {
-    this.collectedFrames = [];
-  }
-}
-
-// Test helper: Passthrough processor
-class PassthroughProcessor extends FrameProcessor {
-  async processFrame(frame: Frame): Promise<void> {
-    await this.pushFrame(frame, "downstream");
-  }
-}
-
-// Test helper: Echo processor (sends frame back upstream)
-class EchoProcessor extends FrameProcessor {
-  async processFrame(frame: Frame): Promise<void> {
-    await this.pushFrame(frame, "upstream");
-  }
-}
-
-// Test helper: Error processor (throws error on specific frames)
-class ErrorProcessor extends FrameProcessor {
-  async processFrame(frame: Frame): Promise<void> {
-    if (frame instanceof TextFrame && frame.text === "ERROR") {
-      throw new Error("Test error");
-    }
-    await this.pushFrame(frame, "downstream");
-  }
-}
+import {
+  CollectorProcessor,
+  PassthroughProcessor,
+  EchoProcessor,
+  ErrorProcessor,
+  advanceTime,
+} from "./testUtils";
 
 describe("FrameProcessor", () => {
   let activeProcessors: FrameProcessor[] = [];
@@ -82,11 +48,6 @@ describe("FrameProcessor", () => {
   const startProcessor = async (processor: FrameProcessor) => {
     await processor.start();
     activeProcessors.push(processor);
-  };
-
-  // Helper to advance timers and process microtasks
-  const advanceTime = async (ms: number): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, ms));
   };
 
   describe("Initialization", () => {
