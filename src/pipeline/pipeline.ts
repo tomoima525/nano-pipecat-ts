@@ -12,7 +12,11 @@
  * - Metrics collection across processors
  */
 
-import { FrameProcessor, type FrameProcessorOptions, type FrameDirection } from "../processors/base";
+import {
+  FrameProcessor,
+  type FrameProcessorOptions,
+  type FrameDirection,
+} from "../processors/base";
 import { Frame } from "../frames/base";
 import { PipelineSource } from "./source";
 import { PipelineSink } from "./sink";
@@ -211,6 +215,7 @@ export class Pipeline extends FrameProcessor {
    * @param direction - The direction (should be "upstream")
    */
   private async handleUpstreamFromSource(frame: Frame, direction: FrameDirection): Promise<void> {
+    console.log("handleUpstreamFromSource", frame, direction);
     // Frames coming upstream from the source exit the pipeline
     // In a typical setup, this would be handled by an external consumer
     // For now, we just queue it on the pipeline itself
@@ -225,6 +230,7 @@ export class Pipeline extends FrameProcessor {
    * @param direction - The direction (should be "downstream")
    */
   private async handleDownstreamFromSink(frame: Frame, direction: FrameDirection): Promise<void> {
+    console.log("handleDownstreamFromSink", frame, direction);
     // Frames exiting the pipeline through the sink
     // In a typical setup, this would be sent to external consumers (speaker, network, etc.)
     // For now, we just queue it on the pipeline itself

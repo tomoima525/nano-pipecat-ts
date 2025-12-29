@@ -33,7 +33,7 @@ import {
   FrameProcessorPauseFrame,
   FrameProcessorResumeFrame,
 } from "../frames/system";
-import { EndFrame, isEndFrame } from "../frames/control";
+import { isEndFrame } from "../frames/control";
 
 /**
  * Direction for frame flow in the pipeline
@@ -158,6 +158,7 @@ export abstract class FrameProcessor {
    * @param direction - Optional direction hint for bidirectional processors(TODO: implement)
    */
   public queueFrame(frame: Frame, direction?: FrameDirection): void {
+    this.log(`Queueing frame: ${frame.toString()} in direction: ${direction}`);
     if (isSystemFrame(frame)) {
       this.systemQueue.push(frame as SystemFrame);
       this.log(`Queued system frame: ${frame.toString()}`);

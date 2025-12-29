@@ -34,7 +34,7 @@ describe("Pipeline", () => {
     for (const pipeline of activePipelines) {
       try {
         await pipeline.stop();
-      } catch (e) {
+      } catch {
         // Ignore errors during cleanup
       }
     }
@@ -44,7 +44,7 @@ describe("Pipeline", () => {
     for (const processor of activeProcessors) {
       try {
         await processor.stop();
-      } catch (e) {
+      } catch {
         // Ignore errors during cleanup
       }
     }

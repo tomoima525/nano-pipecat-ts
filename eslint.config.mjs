@@ -15,7 +15,7 @@ export default defineConfig(
         ...globals.es2022,
       },
       parserOptions: {
-        project: "./tsconfig.json",
+        project: "./tsconfig.eslint.json",
       },
     },
     rules: {
@@ -28,6 +28,6 @@ export default defineConfig(
     },
   },
   {
-    ignores: ["dist/**", "node_modules/**", "*.config.js"],
+    ignores: ["dist/**", "node_modules/**", "*.config.js", "*.config.mjs"],
   }
 );

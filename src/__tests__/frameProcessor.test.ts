@@ -37,7 +37,7 @@ describe("FrameProcessor", () => {
     for (const processor of activeProcessors) {
       try {
         await processor.stop();
-      } catch (e) {
+      } catch {
         // Ignore errors during cleanup
       }
     }
@@ -456,6 +456,7 @@ describe("FrameProcessor", () => {
 
         async processFrame(frame: Frame): Promise<void> {
           // no-op
+          console.log("processFrame", frame);
         }
       }
 
@@ -476,6 +477,7 @@ describe("FrameProcessor", () => {
 
         async processFrame(frame: Frame): Promise<void> {
           // no-op
+          console.log("processFrame", frame);
         }
       }
 
