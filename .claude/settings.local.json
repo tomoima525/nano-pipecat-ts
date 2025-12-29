@@ -7,7 +7,8 @@
       "Bash(mkdir:*)",
       "Bash(tree:*)",
       "Bash(pnpm test:*)",
-      "Bash(pnpm lint)"
+      "Bash(pnpm lint)",
+      "Bash(npx tsc --noEmit)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pipecat-TS WebSocket Demo</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Pipecat-TS WebSocket Demo</h1>
+      <p class="description">
+        This demo connects to a WebSocket server and demonstrates real-time
+        audio streaming. Click "Start" to begin recording audio, which will be
+        sent to the server and echoed back.
+      </p>
+
+      <div class="status-section">
+        <h2>Connection Status</h2>
+        <div class="status-indicator">
+          <span id="connection-dot" class="dot disconnected"></span>
+          <span id="connection-status">Disconnected</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="connect-btn" class="btn btn-primary">Connect</button>
+        <button id="start-btn" class="btn btn-success" disabled>
+          Start Recording
+        </button>
+        <button id="stop-btn" class="btn btn-danger" disabled>
+          Stop Recording
+        </button>
+      </div>
+
+      <div class="audio-section">
+        <h2>Audio Status</h2>
+        <div class="audio-info">
+          <p>
+            Recording: <span id="recording-status" class="status-text">No</span>
+          </p>
+          <p>Sent: <span id="sent-bytes">0</span> bytes</p>
+          <p>Received: <span id="received-bytes">0</span> bytes</p>
+        </div>
+      </div>
+
+      <div class="messages-section">
+        <h2>Messages</h2>
+        <div id="messages" class="messages-log"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
