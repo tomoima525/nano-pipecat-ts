@@ -128,7 +128,7 @@ function createVoiceAgentSession(ws: WSContext): Session {
   // Create services
   const stt = new DeepgramSTTService({
     apiKey: config.deepgramApiKey,
-    model: "flux-general-en",
+    model: "nova-3",
     language: "en",
     smartFormat: true,
   });

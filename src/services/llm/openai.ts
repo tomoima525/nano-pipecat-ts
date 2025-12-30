@@ -128,6 +128,7 @@ export class OpenAILLMService extends LLMService {
       ...options,
       name: options.name ?? "OpenAILLMService",
       modelId: options.model ?? "gpt-4.1",
+      enableLogging: true,
     });
 
     this.apiKey = options.apiKey;
@@ -182,7 +183,7 @@ export class OpenAILLMService extends LLMService {
     if (!fetchFn) {
       throw new Error("Fetch implementation is not available for OpenAILLMService.");
     }
-
+    console.log("Running LLM with messages:", JSON.stringify(messages, null, 2));
     const openAIMessages = this.toOpenAIMessages(messages);
 
     const requestBody: Record<string, unknown> = {

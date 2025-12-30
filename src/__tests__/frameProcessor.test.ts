@@ -446,7 +446,7 @@ describe("FrameProcessor", () => {
   });
 
   describe("Lifecycle", () => {
-    it("should call setup on start", async () => {
+    it("should call setup when setup() is invoked", async () => {
       class SetupProcessor extends FrameProcessor {
         public setupCalled = false;
 
@@ -461,6 +461,7 @@ describe("FrameProcessor", () => {
       }
 
       const processor = new SetupProcessor();
+      await processor.setup();
       await startProcessor(processor);
       await processor.stop();
 

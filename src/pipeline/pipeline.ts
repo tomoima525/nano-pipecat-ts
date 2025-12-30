@@ -156,6 +156,10 @@ export class Pipeline extends FrameProcessor {
    * This begins the frame processing loop for each processor.
    */
   public async start(): Promise<void> {
+    // Setup all processors first (establishes connections, etc.)
+    await this.setup();
+
+    // Start the pipeline's own processing loop
     await super.start();
 
     // Start all processors

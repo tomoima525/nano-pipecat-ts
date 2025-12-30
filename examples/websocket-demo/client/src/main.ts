@@ -180,6 +180,36 @@ function float32ToInt16(float32Data: Float32Array): Uint8Array {
 }
 
 /**
+ * Resample audio from source sample rate to target sample rate
+ * Uses linear interpolation for simplicity
+ */
+function resampleAudio(
+  inputData: Float32Array,
+  inputSampleRate: number,
+  outputSampleRate: number
+): Float32Array {
+  if (inputSampleRate === outputSampleRate) {
+    return inputData;
+  }
+
+  const ratio = inputSampleRate / outputSampleRate;
+  const outputLength = Math.floor(inputData.length / ratio);
+  const outputData = new Float32Array(outputLength);
+
+  for (let i = 0; i < outputLength; i++) {
+    const srcIndex = i * ratio;
+    const srcIndexFloor = Math.floor(srcIndex);
+    const srcIndexCeil = Math.min(srcIndexFloor + 1, inputData.length - 1);
+    const t = srcIndex - srcIndexFloor;
+
+    // Linear interpolation
+    outputData[i] = inputData[srcIndexFloor] * (1 - t) + inputData[srcIndexCeil] * t;
+  }
+
+  return outputData;
+}
+
+/**
  * Play audio data at specified sample rate
  */
 function playAudio(audioData: Float32Array, sampleRate: number): void {
@@ -240,8 +270,41 @@ async function startRecording() {
       },
     });
 
-    // Create audio context for input
-    inputAudioContext = new AudioContext({ sampleRate: inputAudioContext?.sampleRate ?? 16000 });
+    // Debug: Check MediaStream tracks
+    const audioTrack = mediaStream.getAudioTracks()[0];
+    const nativeSampleRate = audioTrack?.getSettings().sampleRate ?? 48000;
+
+    if (audioTrack) {
+      const settings = audioTrack.getSettings();
+      console.log("[Audio Debug] MediaStream track:", {
+        label: audioTrack.label,
+        enabled: audioTrack.enabled,
+        muted: audioTrack.muted,
+        readyState: audioTrack.readyState,
+        settings: {
+          deviceId: settings.deviceId,
+          sampleRate: settings.sampleRate,
+          channelCount: settings.channelCount,
+        },
+      });
+    } else {
+      console.error("[Audio Debug] No audio track found in MediaStream!");
+    }
+
+    // Create audio context at the NATIVE sample rate (important for proper capture)
+    // We'll resample to 16kHz before sending to the server
+    inputAudioContext = new AudioContext({ sampleRate: nativeSampleRate });
+
+    // Resume AudioContext if suspended (required after user interaction)
+    if (inputAudioContext.state === "suspended") {
+      console.log("[Audio Debug] AudioContext suspended, resuming...");
+      await inputAudioContext.resume();
+    }
+
+    console.log("[Audio Debug] Native sample rate:", nativeSampleRate);
+    console.log("[Audio Debug] Actual AudioContext sample rate:", inputAudioContext.sampleRate);
+    console.log("[Audio Debug] AudioContext state:", inputAudioContext.state);
+    console.log("[Audio Debug] Will resample to 16000 Hz before sending");
 
     // Load audio worklet for processing
     await inputAudioContext.audioWorklet.addModule(audioCaptureProcessUrl);
@@ -251,12 +314,52 @@ async function startRecording() {
 
     // Create worklet node
     audioWorklet = new AudioWorkletNode(inputAudioContext, "audio-capture-processor");
+    // Target sample rate for the server (Deepgram expects 16kHz)
+    const targetSampleRate = 16000;
+
+    // Log first audio chunk for debugging
+    let audioChunkCount = 0;
     audioWorklet.port.onmessage = event => {
       if (ws && ws.readyState === WebSocket.OPEN && event.data?.type === "audioData") {
         const float32Data = event.data.audioData as Float32Array;
-        const int16Data = float32ToInt16(float32Data);
 
-        ws.send(int16Data.buffer);
+        // Calculate max amplitude to check if we're getting real audio
+        let maxAmplitude = 0;
+        for (let i = 0; i < float32Data.length; i++) {
+          const abs = Math.abs(float32Data[i]);
+          if (abs > maxAmplitude) maxAmplitude = abs;
+        }
+
+        // Resample from native rate to 16kHz
+        const resampledData = resampleAudio(
+          float32Data,
+          inputAudioContext?.sampleRate ?? nativeSampleRate,
+          targetSampleRate
+        );
+
+        // Convert to Int16 PCM
+        const int16Data = float32ToInt16(resampledData);
+
+        // Log first few chunks for debugging
+        if (audioChunkCount < 5) {
+          console.log(`[Audio Debug] Chunk ${audioChunkCount}:`, {
+            inputSamples: float32Data.length,
+            inputSampleRate: inputAudioContext?.sampleRate,
+            resampledSamples: resampledData.length,
+            outputSampleRate: targetSampleRate,
+            int16Bytes: int16Data.length,
+            maxAmplitude: maxAmplitude.toFixed(6),
+            hasAudio: maxAmplitude > 0.001,
+          });
+          audioChunkCount++;
+        }
+
+        // Warn if audio is silent
+        if (audioChunkCount === 5 && maxAmplitude < 0.001) {
+          console.warn("[Audio Debug] WARNING: Audio appears to be silent! Check microphone.");
+        }
+
+        ws.send(int16Data);
         sentBytes += int16Data.length;
         sentBytesEl.textContent = sentBytes.toString();
       }

@@ -217,6 +217,7 @@ export abstract class FrameProcessor {
   /**
    * Start the frame processing loop.
    * This begins consuming frames from the queues.
+   * Note: setup() must be called before start() - Pipeline handles this coordination.
    */
   public async start(): Promise<void> {
     if (this.running) {
@@ -226,8 +227,6 @@ export abstract class FrameProcessor {
 
     this.running = true;
     this.shouldStop = false;
-
-    await this.setup();
 
     this.processingTask = this.processLoop();
     this.log("Started");
