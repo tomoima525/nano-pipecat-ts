@@ -17,8 +17,7 @@ import {
   BaseInputTransport,
   BaseOutputTransport,
   DEFAULT_TRANSPORT_PARAMS,
-  WebSocketTransport,
-  WebSocketState,
+  WebSocketServerTransport,
   EchoTransport,
 } from "../transports";
 import { CollectorProcessor, advanceTime } from "./testUtils";
@@ -463,155 +462,54 @@ describe("EchoTransport", () => {
   });
 });
 
-describe("WebSocketTransport", () => {
-  // Mock WebSocket implementation
+describe("WebSocketServerTransport", () => {
+  // Mock WebSocket-like interface (similar to Hono WSContext or ws)
   class MockWebSocket {
-    static CONNECTING = 0;
-    static OPEN = 1;
-    static CLOSING = 2;
-    static CLOSED = 3;
-
-    public readyState = MockWebSocket.CONNECTING;
-    public binaryType: string = "blob";
-    public onopen?: () => void;
-    public onclose?: (event: { code: number; reason: string }) => void;
-    public onerror?: (event: unknown) => void;
-    public onmessage?: (event: { data: unknown }) => void;
-
     private sentMessages: unknown[] = [];
+    private closed = false;
 
-    constructor(public url: string, public protocols?: string | string[]) {
-      // Auto-connect after a tick
-      setTimeout(() => {
-        this.readyState = MockWebSocket.OPEN;
-        this.onopen?.();
-      }, 0);
-    }
-
-    send(data: unknown): void {
+    send(data: string | ArrayBuffer | Uint8Array): void {
+      if (this.closed) {
+        throw new Error("WebSocket is closed");
+      }
       this.sentMessages.push(data);
     }
 
-    close(code: number = 1000, reason: string = ""): void {
-      this.readyState = MockWebSocket.CLOSED;
-      this.onclose?.({ code, reason });
+    close(code?: number, reason?: string): void {
+      this.closed = true;
     }
 
     getSentMessages(): unknown[] {
       return this.sentMessages;
     }
 
-    // Simulate receiving a message
-    simulateMessage(data: unknown): void {
-      this.onmessage?.({ data });
-    }
-
-    // Simulate an error
-    simulateError(): void {
-      this.onerror?.({});
+    isClosed(): boolean {
+      return this.closed;
     }
   }
 
-  it("creates with correct default state", () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
-    expect(transport.getConnectionState()).toBe(WebSocketState.DISCONNECTED);
-    expect(transport.isConnected()).toBe(false);
-  });
-
   it("creates input and output processors", () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({ ws });
 
     expect(transport.input()).toBeDefined();
     expect(transport.output()).toBeDefined();
   });
 
-  it("connects to WebSocket server", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
-    await transport.connect();
-
-    expect(transport.getConnectionState()).toBe(WebSocketState.CONNECTED);
-    expect(transport.isConnected()).toBe(true);
-  });
-
-  it("disconnects from WebSocket server", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
-    await transport.connect();
-    await transport.disconnect();
-
-    expect(transport.getConnectionState()).toBe(WebSocketState.DISCONNECTED);
-    expect(transport.isConnected()).toBe(false);
-  });
-
-  it("calls onConnect handler when connected", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
-    let connected = false;
-    transport.onConnect(() => {
-      connected = true;
-    });
-
-    await transport.connect();
-
-    expect(connected).toBe(true);
-  });
-
-  it("calls onDisconnect handler when disconnected", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
-    let disconnected = false;
-    let disconnectCode = 0;
-    transport.onDisconnect((code) => {
-      disconnected = true;
-      disconnectCode = code;
-    });
-
-    await transport.connect();
-    await transport.disconnect();
-
-    expect(disconnected).toBe(true);
-    expect(disconnectCode).toBe(1000);
-  });
-
-  it("handles binary audio messages", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
+  it("receives audio data via onAudioData", async () => {
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({ ws });
     const collector = new CollectorProcessor();
     const input = transport.input();
 
     input.link(collector);
-    await transport.connect();
     await transport.start();
     await input.start();
     await collector.start();
 
-    // Simulate receiving binary audio
+    // Send audio via onAudioData
     const audioData = createAudioData(320);
-    const ws = (transport as any).ws as MockWebSocket;
-    ws.simulateMessage(audioData.buffer);
+    transport.onAudioData(audioData);
 
     await advanceTime(50);
 
@@ -625,27 +523,19 @@ describe("WebSocketTransport", () => {
     expect(audioFrames.length).toBeGreaterThan(0);
   });
 
-  it("handles JSON messages", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
+  it("receives messages via onMessage", async () => {
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({ ws });
     const collector = new CollectorProcessor();
     const input = transport.input();
 
     input.link(collector);
-    await transport.connect();
     await transport.start();
     await input.start();
     await collector.start();
 
-    // Simulate receiving JSON message
-    const ws = (transport as any).ws as MockWebSocket;
-    ws.simulateMessage(JSON.stringify({
-      type: "message",
-      data: { action: "test", value: 123 },
-    }));
+    // Send message via onMessage
+    await transport.onMessage({ action: "test", value: 123 });
 
     await advanceTime(50);
 
@@ -657,68 +547,50 @@ describe("WebSocketTransport", () => {
       f => f instanceof InputTransportMessageFrame
     );
     expect(messageFrames.length).toBe(1);
+    expect((messageFrames[0] as InputTransportMessageFrame).message).toEqual({
+      action: "test",
+      value: 123,
+    });
   });
 
   it("sends audio via WebSocket", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
-    await transport.connect();
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({ ws });
 
     const audioData = createAudioData(480);
     await transport.sendAudio(audioData);
 
-    const ws = (transport as any).ws as MockWebSocket;
     expect(ws.getSentMessages().length).toBe(1);
+    expect(ws.getSentMessages()[0]).toBeInstanceOf(Uint8Array);
   });
 
-  it("sends messages via WebSocket", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
+  it("sends messages via WebSocket as JSON", async () => {
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({ ws });
 
-    await transport.connect();
+    await transport.sendMessage({ action: "test", data: "hello" });
 
-    await transport.sendMessageData({ action: "test", data: "hello" });
-
-    const ws = (transport as any).ws as MockWebSocket;
     const sentMessages = ws.getSentMessages();
     expect(sentMessages.length).toBe(1);
 
     const parsed = JSON.parse(sentMessages[0] as string);
-    expect(parsed.type).toBe("message");
-    expect(parsed.data).toEqual({ action: "test", data: "hello" });
+    expect(parsed.action).toBe("test");
+    expect(parsed.data).toBe("hello");
   });
 
-  it("throws error when sending without connection", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
+  it("closes the WebSocket connection", () => {
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({ ws });
 
-    const audioData = createAudioData(480);
-    await expect(transport.sendAudio(audioData)).rejects.toThrow("WebSocket not connected");
-  });
+    transport.close(1000, "Normal closure");
 
-  it("does not reconnect when already connected", async () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
-    });
-
-    await transport.connect();
-    await transport.connect(); // Second call should be no-op
-
-    expect(transport.getConnectionState()).toBe(WebSocketState.CONNECTED);
+    expect(ws.isClosed()).toBe(true);
   });
 
   it("configures custom transport parameters", () => {
-    const transport = new WebSocketTransport({
-      url: "ws://localhost:8080",
-      webSocketImpl: MockWebSocket as unknown as typeof WebSocket,
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({
+      ws,
       params: {
         audioIn: { enabled: true, sampleRate: 48000, numChannels: 2, chunkSizeMs: 10 },
         audioOut: { enabled: true, sampleRate: 44100, numChannels: 2, chunkSizeMs: 10 },
@@ -733,6 +605,63 @@ describe("WebSocketTransport", () => {
     const outputConfig = transport.getAudioOutputConfig();
     expect(outputConfig.sampleRate).toBe(44100);
     expect(outputConfig.numChannels).toBe(2);
+  });
+
+  it("works with pipeline", async () => {
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({
+      ws,
+      params: {
+        audioIn: { enabled: true, sampleRate: 16000, numChannels: 1, chunkSizeMs: 20 },
+        audioOut: { enabled: true, sampleRate: 24000, numChannels: 1, chunkSizeMs: 20 },
+      },
+    });
+
+    const collector = new CollectorProcessor();
+
+    // Build pipeline: input -> collector
+    const pipeline = new Pipeline([
+      transport.input(),
+      collector,
+    ]);
+
+    await pipeline.start();
+
+    // Send audio via transport
+    const audioData = createAudioData(320, 0.5);
+    transport.onAudioData(audioData);
+
+    await advanceTime(100);
+    await pipeline.stop();
+
+    // Check that audio flowed through
+    const audioFrames = collector.collectedFrames.filter(
+      f => f instanceof InputAudioRawFrame
+    );
+    expect(audioFrames.length).toBeGreaterThan(0);
+  });
+
+  it("sends output audio frames via WebSocket", async () => {
+    const ws = new MockWebSocket();
+    const transport = new WebSocketServerTransport({ ws });
+    const output = transport.output();
+
+    await transport.start();
+    await output.start();
+
+    // Queue an output audio frame
+    const audioFrame = new OutputAudioRawFrame(createAudioData(480), 24000, 1);
+    output.queueFrame(audioFrame);
+
+    await advanceTime(50);
+
+    await output.stop();
+    await transport.stop();
+
+    // Check that audio was sent via WebSocket
+    const sentMessages = ws.getSentMessages();
+    expect(sentMessages.length).toBeGreaterThan(0);
+    expect(sentMessages[0]).toBeInstanceOf(Uint8Array);
   });
 });
 

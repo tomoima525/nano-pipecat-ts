@@ -181,8 +181,23 @@ h2 {
   border-left: 3px solid #f39c12;
 }
 
+.message.transcription {
+  background-color: #e8f5e9;
+  border-left: 3px solid #4caf50;
+}
+
+.message.bot {
+  background-color: #e3f2fd;
+  border-left: 3px solid #2196f3;
+}
+
 .message-time {
   color: #666;
   font-size: 0.75rem;
   margin-right: 0.5rem;
+}
+
+.message-prefix {
+  font-weight: bold;
+  margin-right: 0.25rem;
 }

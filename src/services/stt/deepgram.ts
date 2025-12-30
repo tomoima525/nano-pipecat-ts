@@ -1,3 +1,4 @@
+import { createClient, type DeepgramClient } from "@deepgram/sdk";
 import { InputAudioRawFrame, type Language } from "../../frames/data";
 import { STTResult, STTService, type STTServiceOptions } from "./base";
 
@@ -10,10 +11,6 @@ export interface DeepgramSTTOptions extends STTServiceOptions {
   language?: Language;
   /** Enable smart formatting (punctuation, capitalization) */
   smartFormat?: boolean;
-  /** Override API endpoint (for testing) */
-  endpoint?: string;
-  /** Custom fetch implementation (for testing) */
-  fetch?: typeof fetch;
 }
 
 interface DeepgramAlternative {
@@ -31,14 +28,12 @@ interface DeepgramResponse {
 }
 
 /**
- * Deepgram Speech-to-Text service.
+ * Deepgram Speech-to-Text service using the official Deepgram SDK.
  */
 export class DeepgramSTTService extends STTService {
-  private readonly apiKey: string;
+  private readonly client: DeepgramClient;
   private readonly model?: string;
   private readonly smartFormat: boolean;
-  private readonly endpoint: string;
-  private readonly fetchImpl?: typeof fetch;
 
   constructor(options: DeepgramSTTOptions) {
     super({
@@ -47,53 +42,42 @@ export class DeepgramSTTService extends STTService {
       language: options.language,
     });
 
-    this.apiKey = options.apiKey;
+    this.client = createClient(options.apiKey);
     this.model = options.model;
     this.smartFormat = options.smartFormat ?? true;
-    this.endpoint = options.endpoint ?? "https://api.deepgram.com/v1/listen";
-    this.fetchImpl = options.fetch;
   }
 
   protected async runSTT(audio: Uint8Array, frame: InputAudioRawFrame): Promise<STTResult> {
-    const fetchFn = this.fetchImpl ?? globalThis.fetch;
-    if (!fetchFn) {
-      throw new Error("Fetch implementation is not available for DeepgramSTTService.");
-    }
-
-    const url = new URL(this.endpoint);
-    if (this.model) {
-      url.searchParams.set("model", this.model);
-    }
     const language = this.defaultLanguage ?? undefined;
+
+    // Convert Uint8Array to Buffer for the SDK
+    const audioBuffer = Buffer.from(audio);
+
+    // Build transcription options
+    const options: Record<string, unknown> = {
+      encoding: "linear16",
+      sample_rate: frame.sampleRate,
+      channels: frame.numChannels,
+      smart_format: this.smartFormat,
+    };
+
+    if (this.model) {
+      options.model = this.model;
+    }
     if (language) {
-      url.searchParams.set("language", language);
-    }
-    if (this.smartFormat) {
-      url.searchParams.set("smart_format", "true");
+      options.language = language;
     }
 
-    const contentType = `audio/pcm;encoding=linear16;sample_rate=${frame.sampleRate};channels=${frame.numChannels}`;
+    const { result, error } = await this.client.listen.prerecorded.transcribeFile(
+      audioBuffer,
+      options
+    );
 
-    const audioCopy = new Uint8Array(audio);
-    const audioBuffer = audioCopy.buffer;
-
-    const response = await fetchFn(url.toString(), {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${this.apiKey}`,
-        "Content-Type": contentType,
-      },
-      body: audioBuffer,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `Deepgram request failed: ${response.status} ${response.statusText} - ${text}`
-      );
+    if (error) {
+      throw new Error(`Deepgram transcription failed: ${error.message}`);
     }
 
-    const json = (await response.json()) as DeepgramResponse;
+    const json = result as unknown as DeepgramResponse;
     const transcript = json.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? "";
 
     return {

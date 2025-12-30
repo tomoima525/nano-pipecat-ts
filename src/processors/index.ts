@@ -8,3 +8,13 @@ export {
   type FrameDirection,
   resetProcessorIdCounter,
 } from "./base";
+
+export {
+  AudioBufferProcessor,
+  type AudioBufferProcessorOptions,
+} from "./audioBuffer";
+
+export {
+  SimpleVADProcessor,
+  type SimpleVADProcessorOptions,
+} from "./vad";

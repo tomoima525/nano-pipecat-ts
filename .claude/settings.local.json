@@ -8,7 +8,14 @@
       "Bash(tree:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm lint)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm install)",
+      "mcp__context7__resolve-library-id",
+      "WebFetch(domain:developers.deepgram.com)",
+      "Bash(pnpm add:*)",
+      "WebFetch(domain:docs.cartesia.ai)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

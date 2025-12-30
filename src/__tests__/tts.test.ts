@@ -160,56 +160,67 @@ describe("TTSService", () => {
   });
 });
 
+// Mock the Cartesia SDK
+jest.mock("@cartesia/cartesia-js", () => ({
+  CartesiaClient: jest.fn(() => ({
+    tts: {
+      bytes: jest.fn(),
+    },
+  })),
+  Cartesia: {},
+}));
+
+import { CartesiaClient } from "@cartesia/cartesia-js";
+import { Readable } from "stream";
+
 describe("CartesiaTTSService", () => {
   const mockAudioData = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7]);
+  const mockBytes = jest.fn();
 
-  const createMockResponse = (audioData: Uint8Array) => ({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    async arrayBuffer() {
-      return audioData.buffer;
-    },
-    async json() {
-      return {};
-    },
-    async text() {
-      return "";
-    },
+  // Helper to create a mock readable stream from audio data
+  const createMockStream = (audioData: Uint8Array): Readable => {
+    const stream = new Readable({
+      read() {
+        this.push(Buffer.from(audioData));
+        this.push(null);
+      },
+    });
+    return stream;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (CartesiaClient as jest.Mock).mockReturnValue({
+      tts: {
+        bytes: mockBytes,
+      },
+    });
   });
 
-  it("sends text to Cartesia and returns audio", async () => {
-    const fetchMock = jest.fn().mockResolvedValue(createMockResponse(mockAudioData));
+  it("sends text to Cartesia SDK and returns audio", async () => {
+    mockBytes.mockResolvedValue(createMockStream(mockAudioData));
+
     const tts = new CartesiaTTSService({
       apiKey: "test-key",
       voiceId: "test-voice-id",
       model: "sonic-3",
       language: "en",
-      fetch: fetchMock,
     });
 
     const result = await tts["runTTS"]("Hello world");
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0];
+    expect(CartesiaClient).toHaveBeenCalledWith({ apiKey: "test-key" });
+    expect(mockBytes).toHaveBeenCalledTimes(1);
 
-    expect(url).toBe("https://api.cartesia.ai/tts/bytes");
-    expect((init as RequestInit).method).toBe("POST");
-    expect((init as RequestInit).headers).toMatchObject({
-      "X-API-Key": "test-key",
-      "Cartesia-Version": "2024-06-10",
-      "Content-Type": "application/json",
-    });
-
-    const body = JSON.parse((init as RequestInit).body as string);
-    expect(body.model_id).toBe("sonic-3");
-    expect(body.transcript).toBe("Hello world");
-    expect(body.voice.mode).toBe("id");
-    expect(body.voice.id).toBe("test-voice-id");
-    expect(body.language).toBe("en");
-    expect(body.output_format.container).toBe("raw");
-    expect(body.output_format.encoding).toBe("pcm_s16le");
-    expect(body.output_format.sample_rate).toBe(24000);
+    const request = mockBytes.mock.calls[0][0];
+    expect(request.modelId).toBe("sonic-3");
+    expect(request.transcript).toBe("Hello world");
+    expect(request.voice.mode).toBe("id");
+    expect(request.voice.id).toBe("test-voice-id");
+    expect(request.language).toBe("en");
+    expect(request.outputFormat.container).toBe("raw");
+    expect(request.outputFormat.encoding).toBe("pcm_s16le");
+    expect(request.outputFormat.sampleRate).toBe(24000);
 
     expect(result.audio).toEqual(mockAudioData);
     expect(result.sampleRate).toBe(24000);
@@ -217,67 +228,57 @@ describe("CartesiaTTSService", () => {
   });
 
   it("uses custom sample rate", async () => {
-    const fetchMock = jest.fn().mockResolvedValue(createMockResponse(mockAudioData));
+    mockBytes.mockResolvedValue(createMockStream(mockAudioData));
+
     const tts = new CartesiaTTSService({
       apiKey: "test-key",
       voiceId: "test-voice-id",
       sampleRate: 44100,
-      fetch: fetchMock,
     });
 
     const result = await tts["runTTS"]("Test");
 
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
-    expect(body.output_format.sample_rate).toBe(44100);
+    const request = mockBytes.mock.calls[0][0];
+    expect(request.outputFormat.sampleRate).toBe(44100);
     expect(result.sampleRate).toBe(44100);
   });
 
-  it("throws error on API failure", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      statusText: "Unauthorized",
-      async json() {
-        return { error: "Invalid API key" };
-      },
-    });
+  it("throws error on SDK failure", async () => {
+    mockBytes.mockRejectedValue(new Error("API error: Invalid API key"));
 
     const tts = new CartesiaTTSService({
       apiKey: "invalid-key",
       voiceId: "test-voice-id",
-      fetch: fetchMock,
     });
 
-    await expect(tts["runTTS"]("Hello")).rejects.toThrow(
-      /Cartesia request failed: 401 Unauthorized - Invalid API key/
-    );
+    await expect(tts["runTTS"]("Hello")).rejects.toThrow("API error: Invalid API key");
   });
 
   it("uses default model when not specified", async () => {
-    const fetchMock = jest.fn().mockResolvedValue(createMockResponse(mockAudioData));
+    mockBytes.mockResolvedValue(createMockStream(mockAudioData));
+
     const tts = new CartesiaTTSService({
       apiKey: "test-key",
       voiceId: "test-voice-id",
-      fetch: fetchMock,
     });
 
     await tts["runTTS"]("Test");
 
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
-    expect(body.model_id).toBe("sonic-3");
+    const request = mockBytes.mock.calls[0][0];
+    expect(request.modelId).toBe("sonic-3");
   });
 
   it("omits language when not specified", async () => {
-    const fetchMock = jest.fn().mockResolvedValue(createMockResponse(mockAudioData));
+    mockBytes.mockResolvedValue(createMockStream(mockAudioData));
+
     const tts = new CartesiaTTSService({
       apiKey: "test-key",
       voiceId: "test-voice-id",
-      fetch: fetchMock,
     });
 
     await tts["runTTS"]("Test");
 
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
-    expect(body.language).toBeUndefined();
+    const request = mockBytes.mock.calls[0][0];
+    expect(request.language).toBeUndefined();
   });
 });

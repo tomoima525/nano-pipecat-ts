@@ -4,6 +4,12 @@
   "description": "TypeScript implementation of Pipecat - Real-time voice and multimodal conversational AI framework",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -23,22 +29,24 @@
   "author": "Tomo (tomoima525@gmail.com)",
   "license": "MIT",
   "dependencies": {
+    "@cartesia/cartesia-js": "^2.2.9",
+    "@deepgram/sdk": "^4.11.3",
     "uuid": "^9.0.1",
     "ws": "^8.14.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.16.0",
     "@types/jest": "^29.5.8",
     "@types/node": "^20.9.0",
     "@types/uuid": "^9.0.7",
     "@types/ws": "^8.5.8",
     "eslint": "^9.16.0",
-    "typescript-eslint": "^8.18.0",
-    "@eslint/js": "^9.16.0",
     "globals": "^15.13.0",
     "jest": "^29.7.0",
     "prettier": "^3.1.0",
     "ts-jest": "^29.1.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.18.0"
   },
   "engines": {
     "node": ">=18.0.0"

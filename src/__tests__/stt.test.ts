@@ -66,13 +66,36 @@ describe("STTService", () => {
   });
 });
 
+// Mock the Deepgram SDK
+jest.mock("@deepgram/sdk", () => ({
+  createClient: jest.fn(() => ({
+    listen: {
+      prerecorded: {
+        transcribeFile: jest.fn(),
+      },
+    },
+  })),
+}));
+
+import { createClient } from "@deepgram/sdk";
+
 describe("DeepgramSTTService", () => {
-  const mockResponse = {
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    async json() {
-      return {
+  const mockTranscribeFile = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (createClient as jest.Mock).mockReturnValue({
+      listen: {
+        prerecorded: {
+          transcribeFile: mockTranscribeFile,
+        },
+      },
+    });
+  });
+
+  it("sends audio to Deepgram SDK and returns transcription", async () => {
+    mockTranscribeFile.mockResolvedValue({
+      result: {
         results: {
           channels: [
             {
@@ -80,20 +103,14 @@ describe("DeepgramSTTService", () => {
             },
           ],
         },
-      };
-    },
-    async text() {
-      return "";
-    },
-  };
+      },
+      error: null,
+    });
 
-  it("sends audio to Deepgram and returns transcription", async () => {
-    const fetchMock = jest.fn().mockResolvedValue(mockResponse);
     const stt = new DeepgramSTTService({
       apiKey: "test-key",
       model: "nova",
       language: "en-US",
-      fetch: fetchMock,
     });
 
     const result = await stt["runSTT"](
@@ -101,13 +118,36 @@ describe("DeepgramSTTService", () => {
       new InputAudioRawFrame(new Uint8Array([0, 0]), 16000, 1)
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("model=nova");
-    expect(url).toContain("language=en-US");
-    expect((init as RequestInit).headers).toMatchObject({
-      Authorization: "Token test-key",
+    expect(createClient).toHaveBeenCalledWith("test-key");
+    expect(mockTranscribeFile).toHaveBeenCalledTimes(1);
+    const [audioBuffer, options] = mockTranscribeFile.mock.calls[0];
+    expect(Buffer.isBuffer(audioBuffer)).toBe(true);
+    expect(options).toMatchObject({
+      model: "nova",
+      language: "en-US",
+      encoding: "linear16",
+      sample_rate: 16000,
+      channels: 1,
+      smart_format: true,
     });
     expect(result.text).toBe("transcribed text");
+  });
+
+  it("throws error when Deepgram returns an error", async () => {
+    mockTranscribeFile.mockResolvedValue({
+      result: null,
+      error: { message: "API error" },
+    });
+
+    const stt = new DeepgramSTTService({
+      apiKey: "test-key",
+    });
+
+    await expect(
+      stt["runSTT"](
+        new Uint8Array([0, 0]),
+        new InputAudioRawFrame(new Uint8Array([0, 0]), 16000, 1)
+      )
+    ).rejects.toThrow("Deepgram transcription failed: API error");
   });
 });

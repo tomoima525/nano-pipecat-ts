@@ -1,37 +1,73 @@
-# WebSocket Demo
+# WebSocket Demo - Voice Agent
 
-A simple example demonstrating WebSocket-based real-time audio streaming using pipecat-ts.
+A complete voice agent example demonstrating the pipecat-ts library with WebSocket-based real-time audio streaming.
 
 ## Overview
 
-This demo consists of:
+This demo implements a full voice agent pipeline:
 
-- **Server**: A Hono-based WebSocket server that echoes audio back to the client
-- **Client**: A Vite-based web application that records audio and plays back the echoed response
+```
+┌─────────────────┐         ┌─────────────────────────────────────────────────────────┐
+│                 │  Audio  │                    Voice Agent Server                   │
+│  Browser Client │ ──────> │  VAD -> AudioBuffer -> STT -> LLM -> TTS -> WebSocket  │
+│  (Vite + TS)    │ <────── │                                                         │
+│                 │  Audio  │  Deepgram      OpenAI     Cartesia                     │
+└─────────────────┘         └─────────────────────────────────────────────────────────┘
+```
+
+**Pipeline Components:**
+- **VAD (Voice Activity Detection)**: Detects when the user starts/stops speaking
+- **AudioBuffer**: Collects audio while user speaks, sends batch to STT
+- **STT (Deepgram)**: Converts speech to text
+- **LLM (OpenAI)**: Generates conversational responses
+- **TTS (Cartesia)**: Converts text responses to speech
 
 ## Prerequisites
 
 - Node.js >= 18
 - pnpm
+- API keys for:
+  - [Deepgram](https://deepgram.com/) - Speech-to-Text
+  - [OpenAI](https://openai.com/) - Language Model
+  - [Cartesia](https://cartesia.ai/) - Text-to-Speech
 
 ## Getting Started
 
-### 1. Install dependencies
+### 1. Build the main library
 
-From the `examples/websocket-demo` directory:
+From the repository root:
 
 ```bash
 pnpm install
+pnpm build
 ```
 
-Then install dependencies for both server and client:
+### 2. Install example dependencies
 
 ```bash
+cd examples/websocket-demo
+pnpm install
 cd server && pnpm install && cd ..
 cd client && pnpm install && cd ..
 ```
 
-### 2. Run the demo
+### 3. Configure API keys
+
+Create a `.env` file in the `server` directory:
+
+```bash
+cp server/.env.example server/.env
+```
+
+Edit `server/.env` with your API keys:
+
+```env
+DEEPGRAM_API_KEY=your_deepgram_api_key
+OPENAI_API_KEY=your_openai_api_key
+CARTESIA_API_KEY=your_cartesia_api_key
+```
+
+### 4. Run the demo
 
 Start both server and client:
 
@@ -49,65 +85,74 @@ cd server && pnpm run dev
 cd client && pnpm run dev
 ```
 
-### 3. Use the demo
+### 5. Use the voice agent
 
 1. Open your browser to http://localhost:5173
 2. Click "Connect" to establish a WebSocket connection
-3. Click "Start Recording" to begin recording audio
-4. Speak into your microphone - your audio will be sent to the server and echoed back
-5. Click "Stop Recording" to stop
+3. Click "Start Recording" to begin
+4. Speak into your microphone
+5. Wait for the AI response (audio will play automatically)
+6. Click "Stop Recording" when done
 
-## Architecture
+## Echo Mode (No API Keys)
 
-```
-┌─────────────────┐     WebSocket      ┌─────────────────┐
-│                 │ ←───────────────── │                 │
-│  Vite Client    │                    │   Hono Server   │
-│  (Audio I/O)    │ ───────────────→ │   (Echo)        │
-│                 │    Binary Audio    │                 │
-└─────────────────┘                    └─────────────────┘
-```
-
-### Client Flow
-
-1. Records audio from microphone using Web Audio API
-2. Converts Float32 audio to Int16 PCM
-3. Sends audio chunks over WebSocket as binary data
-4. Receives echoed audio from server
-5. Converts Int16 PCM back to Float32
-6. Plays audio through speakers
-
-### Server Flow
-
-1. Accepts WebSocket connections
-2. Receives binary audio data
-3. Echoes audio back to client
-4. Handles JSON messages for control
+If API keys are not configured, the server runs in "echo mode" which simply echoes your audio back. This is useful for testing the audio pipeline without incurring API costs.
 
 ## Configuration
 
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEEPGRAM_API_KEY` | Deepgram API key for STT | Required |
+| `OPENAI_API_KEY` | OpenAI API key for LLM | Required |
+| `CARTESIA_API_KEY` | Cartesia API key for TTS | Required |
+| `CARTESIA_VOICE_ID` | Cartesia voice ID | `a0e99841-438c-4a64-b679-ae501e7d6091` |
+| `SYSTEM_PROMPT` | Custom system prompt for LLM | Default assistant prompt |
+| `PORT` | Server port | `3000` |
+
 ### Audio Settings
 
-- Sample Rate: 16000 Hz
-- Channels: 1 (mono)
-- Chunk Size: 20ms
-- Format: 16-bit PCM (Int16)
+| Setting | Input | Output |
+|---------|-------|--------|
+| Sample Rate | 16000 Hz | 24000 Hz |
+| Channels | 1 (mono) | 1 (mono) |
+| Format | 16-bit PCM | 16-bit PCM |
+| Chunk Size | 20ms | Variable |
 
-### Server Port
+### VAD Settings
 
-Default: 3000
+| Setting | Value | Description |
+|---------|-------|-------------|
+| Threshold | 0.01 | RMS volume threshold for speech detection |
+| Start Frames | 3 | Consecutive speech frames to start |
+| Stop Frames | 15 | Consecutive silence frames to stop |
 
-Set via environment variable:
+## Architecture
 
-```bash
-PORT=8080 pnpm run dev:server
+### Server (`server/src/index.ts`)
+
+The server uses Hono with WebSocket support and creates a pipecat-ts pipeline for each connection:
+
+```typescript
+// Pipeline components
+const vad = new SimpleVADProcessor();
+const audioBuffer = new AudioBufferProcessor();
+const stt = new DeepgramSTTService({ apiKey, model: "nova-2" });
+const llm = new OpenAILLMService({ apiKey, model: "gpt-4o-mini" });
+const tts = new CartesiaTTSService({ apiKey, voiceId });
+const wsOutput = new WebSocketOutputProcessor(ws);
+
+// Build pipeline
+const pipeline = new Pipeline([vad, audioBuffer, stt, llm, tts, wsOutput]);
 ```
 
-### Client Port
+### Client (`client/src/main.ts`)
 
-Default: 5173 (Vite default)
-
-Configure in `client/vite.config.ts`.
+The client uses the Web Audio API to:
+1. Record audio from the microphone at 16kHz
+2. Send audio chunks over WebSocket as binary data
+3. Receive TTS audio at 24kHz and play it back
 
 ## Files
 
@@ -118,8 +163,9 @@ websocket-demo/
 ├── server/
 │   ├── package.json
 │   ├── tsconfig.json
+│   ├── .env.example
 │   └── src/
-│       └── index.ts        # Hono WebSocket server
+│       └── index.ts        # Voice agent server
 └── client/
     ├── package.json
     ├── tsconfig.json
@@ -129,3 +175,25 @@ websocket-demo/
         ├── main.ts         # Client application
         └── style.css       # Styles
 ```
+
+## Troubleshooting
+
+### No audio playback
+- Check browser console for errors
+- Ensure microphone permissions are granted
+- Verify WebSocket connection is established
+
+### No transcription
+- Check server logs for STT errors
+- Verify Deepgram API key is valid
+- Ensure audio is being sent (check "Sent bytes" counter)
+
+### No AI response
+- Check server logs for LLM errors
+- Verify OpenAI API key is valid
+- Check for rate limiting
+
+### No TTS audio
+- Check server logs for TTS errors
+- Verify Cartesia API key is valid
+- Check voice ID is valid

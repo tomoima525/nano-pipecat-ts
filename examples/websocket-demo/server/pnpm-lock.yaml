@@ -14,9 +14,15 @@ importers:
       '@hono/node-ws':
         specifier: ^1.0.4
         version: 1.2.0(@hono/node-server@1.19.7(hono@4.11.3))(hono@4.11.3)
+      dotenv:
+        specifier: ^16.3.1
+        version: 16.6.1
       hono:
         specifier: ^4.6.14
         version: 4.11.3
+      pipecat-ts:
+        specifier: file:../../../dist
+        version: dist@file:../../../dist
     devDependencies:
       '@types/node':
         specifier: ^20.9.0
@@ -202,6 +208,13 @@ packages:
   '@types/node@20.19.27':
     resolution: {integrity: sha512-N2clP5pJhB2YnZJ3PIHFk5RkygRX5WO/5f0WC08tp0wd+sv0rsJk3MqWn3CbNmT2J505a5336jaQj4ph1AdMug==}
 
+  dist@file:../../../dist:
+    resolution: {directory: ../../../dist, type: directory}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
+
   esbuild@0.27.2:
     resolution: {integrity: sha512-HyNQImnsOC7X9PMNaCIeAm4ISCQXs5a5YasTXVliKv4uuBo1dKrG0A+uQS8M5eXjVMnLg3WgXaKvprHlFJQffw==}
     engines: {node: '>=18'}
@@ -343,6 +356,10 @@ snapshots:
   '@types/node@20.19.27':
     dependencies:
       undici-types: 6.21.0
+
+  dist@file:../../../dist: {}
+
+  dotenv@16.6.1: {}
 
   esbuild@0.27.2:
     optionalDependencies:

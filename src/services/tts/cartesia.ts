@@ -1,3 +1,4 @@
+import { CartesiaClient, Cartesia } from "@cartesia/cartesia-js";
 import { TTSService, TTSResult, type TTSServiceOptions } from "./base";
 import { type Language } from "../../frames/data";
 
@@ -72,27 +73,10 @@ export interface CartesiaTTSOptions extends Omit<TTSServiceOptions, "voiceId" | 
   sampleRate?: number;
   /** Audio encoding format (default: pcm_s16le) */
   encoding?: CartesiaEncoding;
-  /** API version string */
-  apiVersion?: string;
-  /** Override API endpoint (for testing) */
-  endpoint?: string;
-  /** Custom fetch implementation (for testing) */
-  fetch?: typeof fetch;
 }
 
 /**
- * Cartesia API response structure.
- */
-interface CartesiaResponse {
-  audio?: string;
-  error?: string;
-  message?: string;
-}
-
-/**
- * Cartesia Text-to-Speech service.
- *
- * Uses Cartesia's HTTP API for text-to-speech synthesis.
+ * Cartesia Text-to-Speech service using the official Cartesia SDK.
  *
  * @example
  * ```typescript
@@ -105,14 +89,11 @@ interface CartesiaResponse {
  * ```
  */
 export class CartesiaTTSService extends TTSService {
-  private readonly apiKey: string;
+  private readonly client: CartesiaClient;
   private readonly model: CartesiaModel;
-  private readonly cartesiaLanguage?: CartesiaLanguage;
+  private readonly cartesiaLanguage?: Cartesia.SupportedLanguage;
   private readonly sampleRate: number;
   private readonly encoding: CartesiaEncoding;
-  private readonly apiVersion: string;
-  private readonly endpoint: string;
-  private readonly fetchImpl?: typeof fetch;
 
   constructor(options: CartesiaTTSOptions) {
     const sampleRate = options.sampleRate ?? 24000;
@@ -126,69 +107,43 @@ export class CartesiaTTSService extends TTSService {
       audioFormat: { sampleRate, numChannels: 1 },
     });
 
-    this.apiKey = options.apiKey;
+    this.client = new CartesiaClient({ apiKey: options.apiKey });
     this.model = options.model ?? "sonic-3";
-    this.cartesiaLanguage = options.language;
+    this.cartesiaLanguage = options.language as Cartesia.SupportedLanguage | undefined;
     this.sampleRate = sampleRate;
     this.encoding = options.encoding ?? "pcm_s16le";
-    this.apiVersion = options.apiVersion ?? "2024-06-10";
-    this.endpoint = options.endpoint ?? "https://api.cartesia.ai/tts/bytes";
-    this.fetchImpl = options.fetch;
   }
 
   /**
-   * Synthesize text to speech using Cartesia API.
+   * Synthesize text to speech using Cartesia SDK.
    *
    * @param text - The text to synthesize
    * @returns Promise resolving to TTS result with audio data
    */
   protected async runTTS(text: string): Promise<TTSResult> {
-    const fetchFn = this.fetchImpl ?? globalThis.fetch;
-    if (!fetchFn) {
-      throw new Error("Fetch implementation is not available for CartesiaTTSService.");
-    }
-
-    const requestBody = {
-      model_id: this.model,
+    const request: Cartesia.TtsRequest = {
+      modelId: this.model,
       transcript: text,
       voice: {
-        mode: "id" as const,
-        id: this.voiceId,
+        mode: "id",
+        id: this.voiceId!,
       },
-      output_format: {
-        container: "raw" as const,
+      outputFormat: {
+        container: "raw",
         encoding: this.encoding,
-        sample_rate: this.sampleRate,
+        sampleRate: this.sampleRate,
       },
       ...(this.cartesiaLanguage && { language: this.cartesiaLanguage }),
     };
 
-    const response = await fetchFn(this.endpoint, {
-      method: "POST",
-      headers: {
-        "X-API-Key": this.apiKey,
-        "Cartesia-Version": this.apiVersion,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    const stream = await this.client.tts.bytes(request);
 
-    if (!response.ok) {
-      let errorMessage = `Cartesia request failed: ${response.status} ${response.statusText}`;
-      try {
-        const errorData = (await response.json()) as CartesiaResponse;
-        if (errorData.error || errorData.message) {
-          errorMessage += ` - ${errorData.error || errorData.message}`;
-        }
-      } catch {
-        // Ignore JSON parse errors for error response
-      }
-      throw new Error(errorMessage);
+    // Collect all chunks from the stream into a single buffer
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.from(chunk));
     }
-
-    // Response is raw audio bytes
-    const arrayBuffer = await response.arrayBuffer();
-    const audio = new Uint8Array(arrayBuffer);
+    const audio = new Uint8Array(Buffer.concat(chunks));
 
     return {
       audio,

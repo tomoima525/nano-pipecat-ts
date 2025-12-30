@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@types/audioworklet':
+        specifier: ^0.0.92
+        version: 0.0.92
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -283,6 +286,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@types/audioworklet@0.0.92':
+    resolution: {integrity: sha512-ykniYTjl1eqgkLeHLH2AAgj4rqdFZyxeVDtCopTTlcvgH7nOHNSn0KYXZPgc0Mx0TiUAwHNEzBWoJw/i8OETBg==}
+
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
@@ -524,6 +530,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.54.0':
     optional: true
+
+  '@types/audioworklet@0.0.92': {}
 
   '@types/estree@1.0.8': {}
 

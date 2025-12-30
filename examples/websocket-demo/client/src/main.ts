@@ -1,39 +1,27 @@
 /**
- * WebSocket Demo Client
+ * WebSocket Demo Client - Voice Agent
  *
- * A simple client that demonstrates the pipecat-ts WebSocket transport.
- * Records audio from the microphone, sends it to the server, and plays
- * back the echoed audio.
+ * A client that connects to the pipecat-ts voice agent server.
+ * Records audio from the microphone, sends it to the server,
+ * and plays back the AI-generated response.
  */
+import audioCaptureProcessUrl from "./audio-capture-processor.ts?url";
 
 // Configuration
 const WS_URL = "ws://localhost:3000/ws";
-const SAMPLE_RATE = 16000;
-const CHUNK_SIZE_MS = 20;
-const CHUNK_SIZE_SAMPLES = Math.floor((SAMPLE_RATE * CHUNK_SIZE_MS) / 1000);
-
 // DOM Elements
 const connectBtn = document.getElementById("connect-btn") as HTMLButtonElement;
-const startBtn = document.getElementById("start-btn") as HTMLButtonElement;
-const stopBtn = document.getElementById("stop-btn") as HTMLButtonElement;
-const connectionDot = document.getElementById(
-  "connection-dot"
-) as HTMLSpanElement;
-const connectionStatus = document.getElementById(
-  "connection-status"
-) as HTMLSpanElement;
-const recordingStatus = document.getElementById(
-  "recording-status"
-) as HTMLSpanElement;
+const connectionDot = document.getElementById("connection-dot") as HTMLSpanElement;
+const connectionStatus = document.getElementById("connection-status") as HTMLSpanElement;
+const recordingStatus = document.getElementById("recording-status") as HTMLSpanElement;
 const sentBytesEl = document.getElementById("sent-bytes") as HTMLSpanElement;
-const receivedBytesEl = document.getElementById(
-  "received-bytes"
-) as HTMLSpanElement;
+const receivedBytesEl = document.getElementById("received-bytes") as HTMLSpanElement;
 const messagesEl = document.getElementById("messages") as HTMLDivElement;
 
 // State
 let ws: WebSocket | null = null;
-let audioContext: AudioContext | null = null;
+let inputAudioContext: AudioContext | null = null;
+let outputAudioContext: AudioContext | null = null;
 let mediaStream: MediaStream | null = null;
 let audioWorklet: AudioWorkletNode | null = null;
 let isRecording = false;
@@ -49,14 +37,22 @@ let isPlaying = false;
  */
 function logMessage(
   text: string,
-  type: "sent" | "received" | "error" | "info" = "info"
-) {
+  type: "sent" | "received" | "error" | "info" | "transcription" | "bot" = "info"
+): void {
   const now = new Date();
   const time = now.toLocaleTimeString();
 
   const messageDiv = document.createElement("div");
   messageDiv.className = `message ${type}`;
-  messageDiv.innerHTML = `<span class="message-time">${time}</span>${text}`;
+
+  let prefix = "";
+  if (type === "transcription") {
+    prefix = '<span class="message-prefix">You:</span> ';
+  } else if (type === "bot") {
+    prefix = '<span class="message-prefix">Bot:</span> ';
+  }
+
+  messageDiv.innerHTML = `<span class="message-time">${time}</span>${prefix}${text}`;
 
   messagesEl.appendChild(messageDiv);
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -65,20 +61,14 @@ function logMessage(
 /**
  * Update connection status UI
  */
-function updateConnectionStatus(
-  status: "disconnected" | "connecting" | "connected"
-) {
+function updateConnectionStatus(status: "disconnected" | "connecting" | "connected"): void {
   connectionDot.className = `dot ${status}`;
-  connectionStatus.textContent =
-    status.charAt(0).toUpperCase() + status.slice(1);
+  connectionStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
 
   if (status === "connected") {
     connectBtn.textContent = "Disconnect";
-    startBtn.disabled = false;
   } else if (status === "disconnected") {
     connectBtn.textContent = "Connect";
-    startBtn.disabled = true;
-    stopBtn.disabled = true;
     stopRecording();
   } else {
     connectBtn.disabled = true;
@@ -88,7 +78,7 @@ function updateConnectionStatus(
 /**
  * Connect to WebSocket server
  */
-async function connect() {
+async function connect(): Promise<void> {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.close();
     return;
@@ -100,41 +90,56 @@ async function connect() {
   ws = new WebSocket(WS_URL);
   ws.binaryType = "arraybuffer";
 
-  ws.onopen = () => {
+  ws.onopen = async () => {
     updateConnectionStatus("connected");
     connectBtn.disabled = false;
     logMessage("Connected to server", "info");
+
+    // Automatically start recording
+    await startRecording();
   };
 
-  ws.onclose = (event) => {
+  ws.onclose = event => {
     updateConnectionStatus("disconnected");
     connectBtn.disabled = false;
     logMessage(`Disconnected: ${event.code} ${event.reason}`, "info");
     ws = null;
   };
 
-  ws.onerror = (event) => {
+  ws.onerror = () => {
     logMessage("WebSocket error occurred", "error");
-    console.error("WebSocket error:", event);
   };
 
-  ws.onmessage = (event) => {
+  ws.onmessage = event => {
     if (event.data instanceof ArrayBuffer) {
-      // Binary data - audio
+      // Binary data - audio from TTS
       const audioData = new Uint8Array(event.data);
       receivedBytes += audioData.length;
       receivedBytesEl.textContent = receivedBytes.toString();
 
-      // Convert to Float32Array for playback
+      // Convert to Float32Array for playback (TTS is 24kHz)
       const float32Data = int16ToFloat32(audioData);
-      playAudio(float32Data);
+      playAudio(float32Data, inputAudioContext?.sampleRate ?? 16000);
     } else {
       // Text data - JSON message
       try {
         const message = JSON.parse(event.data);
-        logMessage(`Received: ${JSON.stringify(message.data)}`, "received");
-      } catch (error) {
-        logMessage(`Received: ${event.data}`, "received");
+
+        if (message.type === "message") {
+          if (message.data.status === "connected") {
+            logMessage(message.data.message, "info");
+          } else {
+            logMessage(`${JSON.stringify(message.data)}`, "received");
+          }
+        } else if (message.type === "transcription") {
+          logMessage(message.data.text, "transcription");
+        } else if (message.type === "bot_response") {
+          logMessage(message.data.text, "bot");
+        } else {
+          logMessage(`${message.type}: ${JSON.stringify(message.data)}`, "received");
+        }
+      } catch {
+        logMessage(`${event.data}`, "received");
       }
     }
   };
@@ -175,11 +180,11 @@ function float32ToInt16(float32Data: Float32Array): Uint8Array {
 }
 
 /**
- * Play audio data
+ * Play audio data at specified sample rate
  */
-function playAudio(audioData: Float32Array) {
-  if (!audioContext) {
-    audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+function playAudio(audioData: Float32Array, sampleRate: number): void {
+  if (!outputAudioContext || outputAudioContext.sampleRate !== sampleRate) {
+    outputAudioContext = new AudioContext({ sampleRate });
   }
 
   audioPlaybackQueue.push(audioData);
@@ -192,23 +197,28 @@ function playAudio(audioData: Float32Array) {
 /**
  * Play the next audio chunk from the queue
  */
-function playNextChunk() {
+function playNextChunk(): void {
   if (audioPlaybackQueue.length === 0) {
     isPlaying = false;
     return;
   }
 
   isPlaying = true;
-  const audioData = audioPlaybackQueue.shift()!;
+  const audioData = audioPlaybackQueue.shift();
 
-  if (!audioContext) return;
+  if (!audioData) return;
+  if (!outputAudioContext) return;
 
-  const buffer = audioContext.createBuffer(1, audioData.length, SAMPLE_RATE);
+  const buffer = outputAudioContext.createBuffer(
+    1,
+    audioData?.length ?? 0,
+    outputAudioContext.sampleRate
+  );
   buffer.copyToChannel(new Float32Array(audioData), 0);
 
-  const source = audioContext.createBufferSource();
+  const source = outputAudioContext.createBufferSource();
   source.buffer = buffer;
-  source.connect(audioContext.destination);
+  source.connect(outputAudioContext.destination);
   source.onended = playNextChunk;
   source.start();
 }
@@ -223,29 +233,27 @@ async function startRecording() {
     // Request microphone access
     mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        sampleRate: SAMPLE_RATE,
+        sampleRate: inputAudioContext?.sampleRate ?? 16000,
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
       },
     });
 
-    // Create audio context
-    audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+    // Create audio context for input
+    inputAudioContext = new AudioContext({ sampleRate: inputAudioContext?.sampleRate ?? 16000 });
 
     // Load audio worklet for processing
-    await audioContext.audioWorklet.addModule(
-      createAudioWorkletURL(CHUNK_SIZE_SAMPLES)
-    );
+    await inputAudioContext.audioWorklet.addModule(audioCaptureProcessUrl);
 
     // Create source from microphone
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    const source = inputAudioContext.createMediaStreamSource(mediaStream);
 
     // Create worklet node
-    audioWorklet = new AudioWorkletNode(audioContext, "audio-processor");
-    audioWorklet.port.onmessage = (event) => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        const float32Data = event.data as Float32Array;
+    audioWorklet = new AudioWorkletNode(inputAudioContext, "audio-capture-processor");
+    audioWorklet.port.onmessage = event => {
+      if (ws && ws.readyState === WebSocket.OPEN && event.data?.type === "audioData") {
+        const float32Data = event.data.audioData as Float32Array;
         const int16Data = float32ToInt16(float32Data);
 
         ws.send(int16Data.buffer);
@@ -259,9 +267,7 @@ async function startRecording() {
 
     isRecording = true;
     recordingStatus.textContent = "Yes";
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    logMessage("Started recording", "info");
+    logMessage("Started recording - speak into your microphone", "info");
   } catch (error) {
     logMessage(`Error starting recording: ${error}`, "error");
     console.error("Recording error:", error);
@@ -280,59 +286,17 @@ function stopRecording() {
   }
 
   if (mediaStream) {
-    mediaStream.getTracks().forEach((track) => track.stop());
+    mediaStream.getTracks().forEach(track => track.stop());
     mediaStream = null;
   }
 
   isRecording = false;
   recordingStatus.textContent = "No";
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
   logMessage("Stopped recording", "info");
-}
-
-/**
- * Create a data URL for the audio worklet processor
- */
-function createAudioWorkletURL(chunkSize: number): string {
-  const processorCode = `
-    class AudioProcessor extends AudioWorkletProcessor {
-      constructor() {
-        super();
-        this.buffer = new Float32Array(${chunkSize});
-        this.bufferIndex = 0;
-      }
-
-      process(inputs, outputs, parameters) {
-        const input = inputs[0];
-        if (!input || !input[0]) return true;
-
-        const channelData = input[0];
-
-        for (let i = 0; i < channelData.length; i++) {
-          this.buffer[this.bufferIndex++] = channelData[i];
-
-          if (this.bufferIndex >= ${chunkSize}) {
-            this.port.postMessage(this.buffer.slice());
-            this.bufferIndex = 0;
-          }
-        }
-
-        return true;
-      }
-    }
-
-    registerProcessor('audio-processor', AudioProcessor);
-  `;
-
-  const blob = new Blob([processorCode], { type: "application/javascript" });
-  return URL.createObjectURL(blob);
 }
 
 // Event listeners
 connectBtn.addEventListener("click", connect);
-startBtn.addEventListener("click", startRecording);
-stopBtn.addEventListener("click", stopRecording);
 
 // Initial log
 logMessage("Ready. Click Connect to start.", "info");

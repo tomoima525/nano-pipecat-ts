@@ -22,17 +22,15 @@ export type {
   BaseOutputTransportOptions,
 } from "./base";
 
-// WebSocket transport
+// WebSocket server transport
 export {
-  WebSocketTransport,
-  WebSocketInputTransport,
-  WebSocketOutputTransport,
-  WebSocketMessageType,
-  WebSocketState,
+  WebSocketServerTransport,
+  WebSocketServerInputTransport,
+  WebSocketServerOutputTransport,
   EchoTransport,
 } from "./websocket";
 
 export type {
-  WebSocketTransportOptions,
-  WebSocketMessage,
+  WebSocketLike,
+  WebSocketServerTransportOptions,
 } from "./websocket";

@@ -1,18 +1,22 @@
 /**
- * WebSocket Transport Implementation
+ * WebSocket Server Transport Implementation
  *
- * Provides WebSocket-based transport for real-time bidirectional communication.
- * Supports audio streaming, message passing, and connection lifecycle management.
+ * Provides server-side WebSocket transport for real-time bidirectional communication.
+ * Accepts an existing WebSocket connection and provides input/output processors
+ * for pipeline integration.
  */
 
 import { Frame } from "../frames/base";
 import {
   InputAudioRawFrame,
   OutputAudioRawFrame,
+  TTSAudioRawFrame,
   InputTransportMessageFrame,
   OutputTransportMessageFrame,
+  TranscriptionFrame,
+  InterimTranscriptionFrame,
 } from "../frames/data";
-import { FrameProcessor, type FrameProcessorOptions } from "../processors/base";
+import { FrameProcessor } from "../processors/base";
 import {
   BaseTransport,
   BaseInputTransport,
@@ -20,100 +24,55 @@ import {
   type BaseTransportOptions,
   type BaseInputTransportOptions,
   type BaseOutputTransportOptions,
-  type TransportParams,
-  DEFAULT_TRANSPORT_PARAMS,
 } from "./base";
 
 /**
- * Sleep utility function for async delays.
+ * WebSocket-like interface that the transport can work with.
+ * Compatible with ws, Hono WSContext, and other WebSocket implementations.
  */
-function sleepMs(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+export interface WebSocketLike {
+  /** Send data over the WebSocket */
+  send(data: string | ArrayBuffer | Uint8Array): void;
+  /** Close the WebSocket connection (optional) */
+  close?(code?: number, reason?: string): void;
 }
 
 /**
- * WebSocket message types for the transport protocol.
+ * Options for WebSocket server transport.
  */
-export enum WebSocketMessageType {
-  /** Audio data message */
-  AUDIO = "audio",
-  /** Text/control message */
-  MESSAGE = "message",
-  /** Connection control (connect, disconnect) */
-  CONTROL = "control",
-  /** Error message */
-  ERROR = "error",
+export interface WebSocketServerTransportOptions extends BaseTransportOptions {
+  /** The WebSocket connection to use */
+  ws: WebSocketLike;
+  /**
+   * Whether to send transcriptions as JSON messages.
+   * When true, TranscriptionFrame will be sent as JSON instead of passed through.
+   * Default: true
+   */
+  sendTranscriptions?: boolean;
 }
 
 /**
- * WebSocket message structure.
- */
-export interface WebSocketMessage {
-  /** Message type */
-  type: WebSocketMessageType;
-  /** Message payload */
-  data: unknown;
-  /** Optional timestamp */
-  timestamp?: number;
-}
-
-/**
- * WebSocket connection state.
- */
-export enum WebSocketState {
-  CONNECTING = "connecting",
-  CONNECTED = "connected",
-  DISCONNECTING = "disconnecting",
-  DISCONNECTED = "disconnected",
-  ERROR = "error",
-}
-
-/**
- * Options for WebSocket transport.
- */
-export interface WebSocketTransportOptions extends BaseTransportOptions {
-  /** WebSocket server URL */
-  url: string;
-  /** Protocols to use for WebSocket connection */
-  protocols?: string | string[];
-  /** Reconnection options */
-  reconnect?: {
-    /** Whether to automatically reconnect */
-    enabled: boolean;
-    /** Maximum number of reconnection attempts */
-    maxAttempts: number;
-    /** Base delay between reconnection attempts (ms) */
-    delayMs: number;
-    /** Maximum delay between reconnection attempts (ms) */
-    maxDelayMs: number;
-  };
-  /** Custom WebSocket implementation (for testing/Node.js) */
-  webSocketImpl?: typeof WebSocket;
-}
-
-/**
- * WebSocket Input Transport.
+ * WebSocket Server Input Transport.
  *
- * Receives audio and messages from WebSocket connection.
+ * Receives audio and messages from an existing WebSocket connection.
+ * Call `onAudioData()` and `onMessage()` from your WebSocket event handlers.
  */
-export class WebSocketInputTransport extends BaseInputTransport {
-  /** Parent transport reference */
-  private transport: WebSocketTransport;
-  /** Queue of received audio frames */
+export class WebSocketServerInputTransport extends BaseInputTransport {
+  private transport: WebSocketServerTransport;
   private audioQueue: InputAudioRawFrame[] = [];
 
   constructor(
-    transport: WebSocketTransport,
+    transport: WebSocketServerTransport,
     options: BaseInputTransportOptions = {}
   ) {
-    super({ ...options, name: options.name ?? "WebSocketInputTransport" });
+    super({ ...options, name: options.name ?? "WebSocketServerInputTransport" });
     this.transport = transport;
   }
 
   /**
-   * Get the WebSocket transport.
+   * Get the parent transport.
    */
-  public getTransport(): WebSocketTransport {
+  public getTransport(): WebSocketServerTransport {
     return this.transport;
   }
 
@@ -128,10 +87,10 @@ export class WebSocketInputTransport extends BaseInputTransport {
   }
 
   /**
-   * Queue an audio frame received from WebSocket.
-   * Called by the parent transport when audio is received.
+   * Queue audio data received from WebSocket.
+   * Call this from your WebSocket's onMessage handler for binary data.
    *
-   * @param audio - Raw audio data
+   * @param audio - Raw audio data as Uint8Array
    */
   public queueAudioData(audio: Uint8Array): void {
     const frame = new InputAudioRawFrame(
@@ -143,10 +102,10 @@ export class WebSocketInputTransport extends BaseInputTransport {
   }
 
   /**
-   * Handle incoming message from WebSocket.
-   * Called by the parent transport.
+   * Handle a message received from WebSocket.
+   * Call this from your WebSocket's onMessage handler for text/JSON data.
    *
-   * @param message - Message payload
+   * @param message - Message payload as object
    */
   public async handleMessage(message: Record<string, unknown>): Promise<void> {
     const frame = new InputTransportMessageFrame(message);
@@ -155,27 +114,83 @@ export class WebSocketInputTransport extends BaseInputTransport {
 }
 
 /**
- * WebSocket Output Transport.
+ * WebSocket Server Output Transport.
  *
- * Sends audio and messages over WebSocket connection.
+ * Sends audio and messages over an existing WebSocket connection.
  */
-export class WebSocketOutputTransport extends BaseOutputTransport {
-  /** Parent transport reference */
-  private transport: WebSocketTransport;
+export class WebSocketServerOutputTransport extends BaseOutputTransport {
+  private transport: WebSocketServerTransport;
+  private readonly sendTranscriptions: boolean;
 
   constructor(
-    transport: WebSocketTransport,
-    options: BaseOutputTransportOptions = {}
+    transport: WebSocketServerTransport,
+    options: BaseOutputTransportOptions & { sendTranscriptions?: boolean } = {}
   ) {
-    super({ ...options, name: options.name ?? "WebSocketOutputTransport" });
+    super({ ...options, name: options.name ?? "WebSocketServerOutputTransport" });
     this.transport = transport;
+    this.sendTranscriptions = options.sendTranscriptions ?? true;
   }
 
   /**
-   * Get the WebSocket transport.
+   * Get the parent transport.
    */
-  public getTransport(): WebSocketTransport {
+  public getTransport(): WebSocketServerTransport {
     return this.transport;
+  }
+
+  /**
+   * Process a frame and send appropriate data over WebSocket.
+   */
+  protected async processFrame(frame: Frame): Promise<void> {
+    // Handle TTS audio frames
+    if (frame instanceof TTSAudioRawFrame) {
+      await this.transport.sendAudio(frame.audio);
+      return;
+    }
+
+    // Handle output audio frames
+    if (frame instanceof OutputAudioRawFrame) {
+      await this.transport.sendAudio(frame.audio);
+      await this.checkBotStoppedSpeaking();
+      return;
+    }
+
+    // Handle transcription frames
+    if (this.sendTranscriptions && frame instanceof TranscriptionFrame) {
+      await this.transport.sendMessage({
+        type: "transcription",
+        data: {
+          text: frame.text,
+          userId: frame.userId,
+          timestamp: frame.timestamp,
+          final: true,
+        },
+      });
+      return;
+    }
+
+    // Handle interim transcription frames
+    if (this.sendTranscriptions && frame instanceof InterimTranscriptionFrame) {
+      await this.transport.sendMessage({
+        type: "transcription",
+        data: {
+          text: frame.text,
+          userId: frame.userId,
+          timestamp: frame.timestamp,
+          final: false,
+        },
+      });
+      return;
+    }
+
+    // Handle output message frames
+    if (frame instanceof OutputTransportMessageFrame) {
+      await this.sendMessage(frame);
+      return;
+    }
+
+    // Pass through other frames
+    await this.pushFrame(frame, "downstream");
   }
 
   /**
@@ -190,102 +205,86 @@ export class WebSocketOutputTransport extends BaseOutputTransport {
    * Send a message via WebSocket.
    */
   protected async sendMessage(frame: OutputTransportMessageFrame): Promise<void> {
-    await this.transport.sendMessageData(frame.message);
+    await this.transport.sendMessage(frame.message);
   }
 }
 
 /**
- * WebSocket Transport.
+ * WebSocket Server Transport.
  *
- * Main transport class that manages WebSocket connection and provides
+ * Server-side transport that wraps an existing WebSocket connection and provides
  * input/output processors for pipeline integration.
  *
  * @example
  * ```typescript
- * const transport = new WebSocketTransport({
- *   url: "wss://api.example.com/audio",
- *   params: {
- *     audioIn: { sampleRate: 16000, numChannels: 1 },
- *     audioOut: { sampleRate: 24000, numChannels: 1 },
+ * // With Hono WebSocket
+ * app.get("/ws", upgradeWebSocket((c) => ({
+ *   onOpen(event, ws) {
+ *     const transport = new WebSocketServerTransport({
+ *       ws,
+ *       params: {
+ *         audioIn: { sampleRate: 16000, numChannels: 1 },
+ *         audioOut: { sampleRate: 24000, numChannels: 1 },
+ *       },
+ *     });
+ *
+ *     const pipeline = new Pipeline([
+ *       transport.input(),
+ *       sttService,
+ *       llmService,
+ *       ttsService,
+ *       transport.output(),
+ *     ]);
+ *
+ *     pipeline.start();
  *   },
- * });
  *
- * // Use in pipeline
- * const pipeline = new Pipeline([
- *   transport.input(),
- *   sttService,
- *   llmService,
- *   ttsService,
- *   transport.output(),
- * ]);
- *
- * await transport.connect();
- * await pipeline.start();
+ *   onMessage(event, ws) {
+ *     const transport = getTransport(ws); // your lookup
+ *     if (event.data instanceof ArrayBuffer) {
+ *       transport.onAudioData(new Uint8Array(event.data));
+ *     } else {
+ *       transport.onMessage(JSON.parse(event.data));
+ *     }
+ *   },
+ * })));
  * ```
  */
-export class WebSocketTransport extends BaseTransport {
-  /** WebSocket URL */
-  private readonly url: string;
-  /** WebSocket protocols */
-  private readonly protocols?: string | string[];
-  /** Reconnection options */
-  private readonly reconnectOptions: {
-    enabled: boolean;
-    maxAttempts: number;
-    delayMs: number;
-    maxDelayMs: number;
-  };
-  /** Custom WebSocket implementation */
-  private readonly WebSocketImpl: typeof WebSocket;
-
-  /** WebSocket instance */
-  private ws?: WebSocket;
-  /** Current connection state */
-  private state: WebSocketState = WebSocketState.DISCONNECTED;
-  /** Reconnection attempt count */
-  private reconnectAttempts: number = 0;
+export class WebSocketServerTransport extends BaseTransport {
+  /** The WebSocket connection */
+  private readonly ws: WebSocketLike;
+  /** Whether to send transcriptions */
+  private readonly sendTranscriptions: boolean;
 
   /** Input transport processor */
-  private _input: WebSocketInputTransport;
+  private _input: WebSocketServerInputTransport;
   /** Output transport processor */
-  private _output: WebSocketOutputTransport;
+  private _output: WebSocketServerOutputTransport;
 
-  /** Event handlers */
-  private onConnectHandlers: Array<() => void> = [];
-  private onDisconnectHandlers: Array<(code: number, reason: string) => void> = [];
-  private onErrorHandlers: Array<(error: Error) => void> = [];
+  constructor(options: WebSocketServerTransportOptions) {
+    super({ ...options, name: options.name ?? "WebSocketServerTransport" });
 
-  constructor(options: WebSocketTransportOptions) {
-    super({ ...options, name: options.name ?? "WebSocketTransport" });
-
-    this.url = options.url;
-    this.protocols = options.protocols;
-    this.reconnectOptions = {
-      enabled: options.reconnect?.enabled ?? false,
-      maxAttempts: options.reconnect?.maxAttempts ?? 3,
-      delayMs: options.reconnect?.delayMs ?? 1000,
-      maxDelayMs: options.reconnect?.maxDelayMs ?? 30000,
-    };
-
-    // Use custom WebSocket implementation or global WebSocket
-    this.WebSocketImpl = options.webSocketImpl ?? (typeof WebSocket !== "undefined" ? WebSocket : (undefined as unknown as typeof WebSocket));
+    this.ws = options.ws;
+    this.sendTranscriptions = options.sendTranscriptions ?? true;
 
     // Create input and output transports
-    this._input = new WebSocketInputTransport(this, {
+    this._input = new WebSocketServerInputTransport(this, {
       name: this.inputName,
       audioConfig: this.getAudioInputConfig(),
       vadConfig: this.params.vad,
     });
 
-    this._output = new WebSocketOutputTransport(this, {
+    this._output = new WebSocketServerOutputTransport(this, {
       name: this.outputName,
       audioConfig: this.getAudioOutputConfig(),
       chunkSizeMs: this.params.audioOut.chunkSizeMs,
+      sendTranscriptions: this.sendTranscriptions,
     });
   }
 
   /**
    * Get the input processor for this transport.
+   * Add this to the beginning of your pipeline.
    */
   public input(): FrameProcessor {
     return this._input;
@@ -293,244 +292,60 @@ export class WebSocketTransport extends BaseTransport {
 
   /**
    * Get the output processor for this transport.
+   * Add this to the end of your pipeline.
    */
   public output(): FrameProcessor {
     return this._output;
   }
 
   /**
-   * Get the current connection state.
+   * Handle incoming audio data from WebSocket.
+   * Call this from your WebSocket's onMessage handler for binary data.
+   *
+   * @param audio - Raw audio data
    */
-  public getConnectionState(): WebSocketState {
-    return this.state;
+  public onAudioData(audio: Uint8Array): void {
+    this._input.queueAudioData(audio);
   }
 
   /**
-   * Check if the transport is connected.
+   * Handle incoming message from WebSocket.
+   * Call this from your WebSocket's onMessage handler for JSON data.
+   *
+   * @param message - Parsed message object
    */
-  public isConnected(): boolean {
-    return this.state === WebSocketState.CONNECTED;
+  public async onMessage(message: Record<string, unknown>): Promise<void> {
+    await this._input.handleMessage(message);
   }
 
   /**
-   * Connect to the WebSocket server.
-   */
-  public async connect(): Promise<void> {
-    if (this.state === WebSocketState.CONNECTED || this.state === WebSocketState.CONNECTING) {
-      return;
-    }
-
-    if (!this.WebSocketImpl) {
-      throw new Error("WebSocket implementation not available");
-    }
-
-    this.state = WebSocketState.CONNECTING;
-
-    return new Promise((resolve, reject) => {
-      try {
-        this.ws = new this.WebSocketImpl(this.url, this.protocols);
-        this.ws.binaryType = "arraybuffer";
-
-        this.ws.onopen = () => {
-          this.state = WebSocketState.CONNECTED;
-          this.reconnectAttempts = 0;
-          this.onConnectHandlers.forEach(handler => handler());
-          resolve();
-        };
-
-        this.ws.onclose = (event) => {
-          const wasConnected = this.state === WebSocketState.CONNECTED;
-          this.state = WebSocketState.DISCONNECTED;
-          this.onDisconnectHandlers.forEach(handler => handler(event.code, event.reason));
-
-          // Attempt reconnection if enabled and was previously connected
-          if (wasConnected && this.reconnectOptions.enabled) {
-            this.attemptReconnect();
-          }
-        };
-
-        this.ws.onerror = (event) => {
-          const error = new Error("WebSocket error occurred");
-          const wasConnecting = this.state === WebSocketState.CONNECTING;
-          this.state = WebSocketState.ERROR;
-          this.onErrorHandlers.forEach(handler => handler(error));
-
-          if (wasConnecting) {
-            reject(error);
-          }
-        };
-
-        this.ws.onmessage = (event) => {
-          this.handleWebSocketMessage(event);
-        };
-      } catch (error) {
-        this.state = WebSocketState.ERROR;
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * Disconnect from the WebSocket server.
-   */
-  public async disconnect(): Promise<void> {
-    if (this.state === WebSocketState.DISCONNECTED || this.state === WebSocketState.DISCONNECTING) {
-      return;
-    }
-
-    this.state = WebSocketState.DISCONNECTING;
-
-    return new Promise((resolve) => {
-      if (this.ws) {
-        const originalOnClose = this.ws.onclose;
-        this.ws.onclose = (event) => {
-          this.state = WebSocketState.DISCONNECTED;
-          if (originalOnClose) {
-            (originalOnClose as (event: CloseEvent) => void)(event);
-          }
-          resolve();
-        };
-        this.ws.close(1000, "Client disconnect");
-      } else {
-        this.state = WebSocketState.DISCONNECTED;
-        resolve();
-      }
-    });
-  }
-
-  /**
-   * Attempt to reconnect to the WebSocket server.
-   */
-  private async attemptReconnect(): Promise<void> {
-    if (this.reconnectAttempts >= this.reconnectOptions.maxAttempts) {
-      console.error("[WebSocketTransport] Max reconnection attempts reached");
-      return;
-    }
-
-    this.reconnectAttempts++;
-    const delay = Math.min(
-      this.reconnectOptions.delayMs * Math.pow(2, this.reconnectAttempts - 1),
-      this.reconnectOptions.maxDelayMs
-    );
-
-    console.log(`[WebSocketTransport] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.reconnectOptions.maxAttempts})`);
-
-    await sleepMs(delay);
-
-    try {
-      await this.connect();
-    } catch (error) {
-      console.error("[WebSocketTransport] Reconnection failed:", error);
-      this.attemptReconnect();
-    }
-  }
-
-  /**
-   * Handle incoming WebSocket message.
-   */
-  private handleWebSocketMessage(event: MessageEvent): void {
-    try {
-      if (event.data instanceof ArrayBuffer) {
-        // Binary data - treat as audio
-        const audioData = new Uint8Array(event.data);
-        this._input.queueAudioData(audioData);
-      } else if (typeof event.data === "string") {
-        // Text data - parse as JSON message
-        const message = JSON.parse(event.data) as WebSocketMessage;
-        this.handleProtocolMessage(message);
-      }
-    } catch (error) {
-      console.error("[WebSocketTransport] Error handling message:", error);
-    }
-  }
-
-  /**
-   * Handle protocol message.
-   */
-  private handleProtocolMessage(message: WebSocketMessage): void {
-    switch (message.type) {
-      case WebSocketMessageType.AUDIO:
-        if (typeof message.data === "string") {
-          // Base64 encoded audio
-          const audioData = this.base64ToUint8Array(message.data);
-          this._input.queueAudioData(audioData);
-        }
-        break;
-
-      case WebSocketMessageType.MESSAGE:
-        this._input.handleMessage(message.data as Record<string, unknown>);
-        break;
-
-      case WebSocketMessageType.CONTROL:
-        this.handleControlMessage(message.data as Record<string, unknown>);
-        break;
-
-      case WebSocketMessageType.ERROR:
-        console.error("[WebSocketTransport] Server error:", message.data);
-        break;
-    }
-  }
-
-  /**
-   * Handle control message from server.
-   */
-  private handleControlMessage(data: Record<string, unknown>): void {
-    // Subclasses can override to handle specific control messages
-    console.log("[WebSocketTransport] Control message:", data);
-  }
-
-  /**
-   * Send audio data over WebSocket.
+   * Send audio data over WebSocket as binary.
    *
    * @param audio - Raw audio data
    */
   public async sendAudio(audio: Uint8Array): Promise<void> {
-    if (!this.ws || this.state !== WebSocketState.CONNECTED) {
-      throw new Error("WebSocket not connected");
-    }
-
-    // Send as binary
-    this.ws.send(audio.buffer);
+    this.ws.send(new Uint8Array(audio));
   }
 
   /**
-   * Send a message over WebSocket.
+   * Send a message over WebSocket as JSON.
    *
    * @param data - Message payload
    */
-  public async sendMessageData(data: Record<string, unknown>): Promise<void> {
-    if (!this.ws || this.state !== WebSocketState.CONNECTED) {
-      throw new Error("WebSocket not connected");
+  public async sendMessage(data: Record<string, unknown>): Promise<void> {
+    this.ws.send(JSON.stringify(data));
+  }
+
+  /**
+   * Close the WebSocket connection.
+   *
+   * @param code - Close code (default: 1000)
+   * @param reason - Close reason
+   */
+  public close(code: number = 1000, reason?: string): void {
+    if (this.ws.close) {
+      this.ws.close(code, reason);
     }
-
-    const message: WebSocketMessage = {
-      type: WebSocketMessageType.MESSAGE,
-      data,
-      timestamp: Date.now(),
-    };
-
-    this.ws.send(JSON.stringify(message));
-  }
-
-  /**
-   * Register a handler for connection events.
-   */
-  public onConnect(handler: () => void): void {
-    this.onConnectHandlers.push(handler);
-  }
-
-  /**
-   * Register a handler for disconnection events.
-   */
-  public onDisconnect(handler: (code: number, reason: string) => void): void {
-    this.onDisconnectHandlers.push(handler);
-  }
-
-  /**
-   * Register a handler for error events.
-   */
-  public onError(handler: (error: Error) => void): void {
-    this.onErrorHandlers.push(handler);
   }
 
   /**
@@ -548,20 +363,7 @@ export class WebSocketTransport extends BaseTransport {
   public override async stop(): Promise<void> {
     await this._input.stop();
     await this._output.stop();
-    await this.disconnect();
     await super.stop();
-  }
-
-  /**
-   * Convert base64 string to Uint8Array.
-   */
-  private base64ToUint8Array(base64: string): Uint8Array {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
   }
 }
 
