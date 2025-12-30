@@ -22,6 +22,13 @@ export interface AudioBufferProcessorOptions extends FrameProcessorOptions {
   sampleRate?: number;
   /** Number of channels for output audio frames (default: 1) */
   numChannels?: number;
+  /**
+   * Number of audio frames to keep in a pre-roll buffer before speech is detected.
+   * When UserStartedSpeakingFrame is received, these frames are included at the
+   * start of the buffered audio. This prevents audio cutoff at the beginning of speech.
+   * Default: 5 (approximately 100ms at 20ms per frame)
+   */
+  preRollFrames?: number;
 }
 
 /**
@@ -50,14 +57,17 @@ export interface AudioBufferProcessorOptions extends FrameProcessorOptions {
  */
 export class AudioBufferProcessor extends FrameProcessor {
   private audioBuffer: Uint8Array[] = [];
+  private preRollBuffer: Uint8Array[] = [];
   private isUserSpeaking = false;
   private readonly sampleRate: number;
   private readonly numChannels: number;
+  private readonly preRollFrames: number;
 
   constructor(options: AudioBufferProcessorOptions = {}) {
     super({ ...options, name: options.name ?? "AudioBufferProcessor" });
     this.sampleRate = options.sampleRate ?? 16000;
     this.numChannels = options.numChannels ?? 1;
+    this.preRollFrames = options.preRollFrames ?? 5;
   }
 
   /**
@@ -84,7 +94,9 @@ export class AudioBufferProcessor extends FrameProcessor {
   protected async processFrame(frame: Frame): Promise<void> {
     if (frame instanceof UserStartedSpeakingFrame) {
       this.isUserSpeaking = true;
-      this.audioBuffer = [];
+      // Include pre-roll audio to prevent cutoff at the start of speech
+      this.audioBuffer = [...this.preRollBuffer];
+      this.preRollBuffer = [];
       await this.pushFrame(frame, "downstream");
       return;
     }
@@ -122,6 +134,13 @@ export class AudioBufferProcessor extends FrameProcessor {
       if (this.isUserSpeaking) {
         // Buffer audio while user is speaking
         this.audioBuffer.push(frame.audio);
+      } else {
+        // Keep a rolling pre-roll buffer when not speaking
+        // This ensures we capture the start of speech
+        this.preRollBuffer.push(frame.audio);
+        if (this.preRollBuffer.length > this.preRollFrames) {
+          this.preRollBuffer.shift();
+        }
       }
       // Don't pass individual audio frames downstream - we batch them
       return;

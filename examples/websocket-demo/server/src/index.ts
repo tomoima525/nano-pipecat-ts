@@ -2,7 +2,9 @@
  * WebSocket Demo Server - Voice Agent
  *
  * A Hono server that implements a voice agent using pipecat-ts.
- * Pipeline: Audio -> STT (Deepgram) -> LLM (OpenAI) -> TTS (Cartesia) -> Audio
+ * Pipeline: Audio -> STT (Deepgram streaming) -> LLM (OpenAI) -> TTS (Cartesia) -> Audio
+ *
+ * Deepgram handles VAD internally, so audio is streamed directly without batching.
  */
 
 import "dotenv/config";
@@ -21,8 +23,6 @@ import {
   DeepgramSTTService,
   OpenAILLMService,
   CartesiaTTSService,
-  AudioBufferProcessor,
-  SimpleVADProcessor,
   WebSocketServerTransport,
 } from "pipecat-ts";
 
@@ -149,20 +149,10 @@ function createVoiceAgentSession(ws: WSContext): Session {
     sampleRate: 24000,
   });
 
-  // Create processors
-  const vad = new SimpleVADProcessor({
-    threshold: 0.01,
-    startFrames: 3,
-    stopFrames: 15,
-  });
-
-  const audioBuffer = new AudioBufferProcessor({ sampleRate: 16000, numChannels: 1 });
-
-  // Build pipeline: Input -> VAD -> AudioBuffer -> STT -> LLM -> TTS -> Output
+  // Build pipeline: Input -> STT -> LLM -> TTS -> Output
+  // Deepgram handles VAD internally via utteranceEndMs, so no need for VAD/AudioBuffer
   const pipeline = new Pipeline([
     transport.input(),
-    vad,
-    audioBuffer,
     stt,
     llm,
     tts,

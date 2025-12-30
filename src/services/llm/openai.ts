@@ -128,7 +128,6 @@ export class OpenAILLMService extends LLMService {
       ...options,
       name: options.name ?? "OpenAILLMService",
       modelId: options.model ?? "gpt-4.1",
-      enableLogging: true,
     });
 
     this.apiKey = options.apiKey;

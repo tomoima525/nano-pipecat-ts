@@ -233,8 +233,7 @@ export class Pipeline extends FrameProcessor {
    * @param frame - The frame going downstream
    * @param direction - The direction (should be "downstream")
    */
-  private async handleDownstreamFromSink(frame: Frame, direction: FrameDirection): Promise<void> {
-    console.log("handleDownstreamFromSink", frame, direction);
+  private async handleDownstreamFromSink(frame: Frame, _direction: FrameDirection): Promise<void> {
     // Frames exiting the pipeline through the sink
     // In a typical setup, this would be sent to external consumers (speaker, network, etc.)
     // For now, we just queue it on the pipeline itself
