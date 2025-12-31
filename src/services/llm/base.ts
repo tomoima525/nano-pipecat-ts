@@ -200,6 +200,9 @@ export abstract class LLMService extends FrameProcessor {
         return;
       }
 
+      // Push transcription downstream first so output transport can send it to client
+      await this.pushFrame(frame, "downstream");
+
       // Add user message to context
       this.context.push({
         role: "user",

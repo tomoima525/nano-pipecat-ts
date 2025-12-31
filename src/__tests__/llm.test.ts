@@ -57,7 +57,7 @@ describe("LLMService", () => {
     ) as LLMFullResponseStartFrame | undefined;
 
     const textFrame = collector.collectedFrames.find(
-      (f: Frame) => f instanceof TextFrame
+      (f: Frame) => f instanceof TextFrame && !(f instanceof TranscriptionFrame)
     ) as TextFrame | undefined;
 
     const endFrame = collector.collectedFrames.find(
@@ -275,7 +275,7 @@ describe("LLMService", () => {
     await pipeline.stop();
 
     const textFrame = collector.collectedFrames.find(
-      (f: Frame) => f instanceof TextFrame
+      (f: Frame) => f instanceof TextFrame && !(f instanceof TranscriptionFrame)
     ) as TextFrame | undefined;
 
     expect(textFrame?.skipTts).toBe(true);

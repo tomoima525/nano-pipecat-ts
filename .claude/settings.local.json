@@ -15,7 +15,8 @@
       "WebFetch(domain:developers.deepgram.com)",
       "Bash(pnpm add:*)",
       "WebFetch(domain:docs.cartesia.ai)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(pnpm test:unit:*)"
     ],
     "deny": [],
     "ask": []
