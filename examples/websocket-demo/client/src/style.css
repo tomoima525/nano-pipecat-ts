@@ -15,3 +15,15 @@
 .animate-pulse-custom {
   animation: pulse 1s infinite;
 }
+
+/* Pipeline stage styles */
+.pipeline-stage {
+  @apply px-2 py-1 bg-gray-700 border border-gray-600 rounded text-gray-400 text-center;
+  min-width: 50px;
+  transition: all 0.2s ease;
+}
+
+.pipeline-stage.active {
+  @apply bg-purple-600 border-purple-400 text-white;
+  box-shadow: 0 0 12px rgba(147, 51, 234, 0.5);
+}

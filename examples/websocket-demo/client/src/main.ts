@@ -17,6 +17,13 @@ const sentBytesEl = document.getElementById("sent-bytes") as HTMLSpanElement;
 const receivedBytesEl = document.getElementById("received-bytes") as HTMLSpanElement;
 const messagesEl = document.getElementById("messages") as HTMLDivElement;
 
+// Pipeline stage elements
+const stageInput = document.getElementById("stage-input") as HTMLDivElement;
+const stageSTT = document.getElementById("stage-stt") as HTMLDivElement;
+const stageLLM = document.getElementById("stage-llm") as HTMLDivElement;
+const stageTTS = document.getElementById("stage-tts") as HTMLDivElement;
+const stageOutput = document.getElementById("stage-output") as HTMLDivElement;
+
 // State
 let ws: WebSocket | null = null;
 let inputAudioContext: AudioContext | null = null;
@@ -69,6 +76,15 @@ function logMessage(
 
   messagesEl.appendChild(messageDiv);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/**
+ * Highlight a pipeline stage momentarily
+ */
+function highlightStage(element: HTMLElement | null, durationMs = 300): void {
+  if (!element) return;
+  element.classList.add("active");
+  setTimeout(() => element.classList.remove("active"), durationMs);
 }
 
 /**
@@ -143,6 +159,9 @@ async function connect(): Promise<void> {
       receivedBytes += audioData.length;
       receivedBytesEl.textContent = receivedBytes.toString();
 
+      // Highlight TTS stage when audio is received
+      highlightStage(stageTTS, 1000);
+
       // Convert to Float32Array for playback (TTS is 24kHz)
       const float32Data = int16ToFloat32(audioData);
       playAudio(float32Data, 24000);
@@ -158,11 +177,15 @@ async function connect(): Promise<void> {
             logMessage(`${JSON.stringify(message.data)}`, "received");
           }
         } else if (message.type === "transcription") {
+          // Highlight STT stage when transcription is received
+          highlightStage(stageSTT);
           // Only show final transcriptions, not interim results
           if (message.data.final) {
             logMessage(message.data.text, "transcription");
           }
         } else if (message.type === "bot_response") {
+          // Highlight LLM stage when bot response is received
+          highlightStage(stageLLM, 1000);
           logMessage(message.data.text, "bot");
         } else {
           logMessage(`${message.type}: ${JSON.stringify(message.data)}`, "received");
@@ -267,6 +290,9 @@ function playNextChunk(): void {
 
   if (!audioData) return;
   if (!outputAudioContext) return;
+
+  // Highlight Output stage when audio is played
+  highlightStage(stageOutput, 1000);
 
   const buffer = outputAudioContext.createBuffer(
     1,
@@ -386,6 +412,9 @@ async function startRecording() {
         ws.send(int16Data);
         sentBytes += int16Data.length;
         sentBytesEl.textContent = sentBytes.toString();
+
+        // Highlight Input stage when audio is sent
+        highlightStage(stageInput);
       }
     };
 
