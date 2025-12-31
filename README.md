@@ -14,3 +14,7 @@ Pipecat-ts is a TypeScript implementation of [Pipecat](https://github.com/pipeca
 # Demo
 
 See [examples/websocket-demo](examples/websocket-demo) for a demo of the library.
+
+
+https://github.com/user-attachments/assets/43fd0d67-eea4-43be-acb5-1a2945f1b1b7
+
