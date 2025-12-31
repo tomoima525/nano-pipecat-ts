@@ -1,5 +1,11 @@
 import { Frame } from "../../frames/base";
-import { TextFrame, TTSAudioRawFrame, type Language } from "../../frames/data";
+import {
+  TextFrame,
+  TTSAudioRawFrame,
+  TranscriptionFrame,
+  InterimTranscriptionFrame,
+  type Language,
+} from "../../frames/data";
 import { TTSStartedFrame, TTSStoppedFrame } from "../../frames/control";
 import { FrameProcessor, type FrameProcessorOptions } from "../../processors/base";
 
@@ -90,6 +96,13 @@ export abstract class TTSService extends FrameProcessor {
    * @param frame - The frame to process
    */
   protected async processFrame(frame: Frame): Promise<void> {
+    // Skip transcription frames - they extend TextFrame but should not be spoken
+    // TranscriptionFrame contains user speech, not bot responses
+    if (frame instanceof TranscriptionFrame || frame instanceof InterimTranscriptionFrame) {
+      await this.pushFrame(frame, "downstream");
+      return;
+    }
+
     if (frame instanceof TextFrame) {
       // Skip TTS if the frame is marked to skip
       if (frame.skipTts) {

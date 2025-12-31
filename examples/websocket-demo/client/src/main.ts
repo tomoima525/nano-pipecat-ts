@@ -119,7 +119,7 @@ async function connect(): Promise<void> {
 
       // Convert to Float32Array for playback (TTS is 24kHz)
       const float32Data = int16ToFloat32(audioData);
-      playAudio(float32Data, inputAudioContext?.sampleRate ?? 16000);
+      playAudio(float32Data, 24000);
     } else {
       // Text data - JSON message
       try {
