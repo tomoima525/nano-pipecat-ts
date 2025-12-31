@@ -9,16 +9,15 @@ This demo implements a full voice agent pipeline:
 ```
 ┌─────────────────┐         ┌─────────────────────────────────────────────────────────┐
 │                 │  Audio  │                    Voice Agent Server                   │
-│  Browser Client │ ──────> │  VAD -> AudioBuffer -> STT -> LLM -> TTS -> WebSocket  │
+│  Browser Client │ ──────> │   STT --------> LLM -------> TTS ----------> WebSocket  │
 │  (Vite + TS)    │ <────── │                                                         │
-│                 │  Audio  │  Deepgram      OpenAI     Cartesia                     │
+│                 │  Audio  │  Deepgram      OpenAI      Cartesia                     │
 └─────────────────┘         └─────────────────────────────────────────────────────────┘
 ```
 
 **Pipeline Components:**
-- **VAD (Voice Activity Detection)**: Detects when the user starts/stops speaking
-- **AudioBuffer**: Collects audio while user speaks, sends batch to STT
-- **STT (Deepgram)**: Converts speech to text
+
+- **STT (Deepgram)**: Converts speech to text(streaming with VAD)
 - **LLM (OpenAI)**: Generates conversational responses
 - **TTS (Cartesia)**: Converts text responses to speech
 
@@ -102,31 +101,23 @@ If API keys are not configured, the server runs in "echo mode" which simply echo
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DEEPGRAM_API_KEY` | Deepgram API key for STT | Required |
-| `OPENAI_API_KEY` | OpenAI API key for LLM | Required |
-| `CARTESIA_API_KEY` | Cartesia API key for TTS | Required |
-| `CARTESIA_VOICE_ID` | Cartesia voice ID | `a0e99841-438c-4a64-b679-ae501e7d6091` |
-| `SYSTEM_PROMPT` | Custom system prompt for LLM | Default assistant prompt |
-| `PORT` | Server port | `3000` |
+| Variable            | Description                  | Default                                |
+| ------------------- | ---------------------------- | -------------------------------------- |
+| `DEEPGRAM_API_KEY`  | Deepgram API key for STT     | Required                               |
+| `OPENAI_API_KEY`    | OpenAI API key for LLM       | Required                               |
+| `CARTESIA_API_KEY`  | Cartesia API key for TTS     | Required                               |
+| `CARTESIA_VOICE_ID` | Cartesia voice ID            | `a0e99841-438c-4a64-b679-ae501e7d6091` |
+| `SYSTEM_PROMPT`     | Custom system prompt for LLM | Default assistant prompt               |
+| `PORT`              | Server port                  | `3000`                                 |
 
 ### Audio Settings
 
-| Setting | Input | Output |
-|---------|-------|--------|
-| Sample Rate | 16000 Hz | 24000 Hz |
-| Channels | 1 (mono) | 1 (mono) |
-| Format | 16-bit PCM | 16-bit PCM |
-| Chunk Size | 20ms | Variable |
-
-### VAD Settings
-
-| Setting | Value | Description |
-|---------|-------|-------------|
-| Threshold | 0.01 | RMS volume threshold for speech detection |
-| Start Frames | 3 | Consecutive speech frames to start |
-| Stop Frames | 15 | Consecutive silence frames to stop |
+| Setting     | Input      | Output     |
+| ----------- | ---------- | ---------- |
+| Sample Rate | 16000 Hz   | 24000 Hz   |
+| Channels    | 1 (mono)   | 1 (mono)   |
+| Format      | 16-bit PCM | 16-bit PCM |
+| Chunk Size  | 20ms       | Variable   |
 
 ## Architecture
 
@@ -150,6 +141,7 @@ const pipeline = new Pipeline([vad, audioBuffer, stt, llm, tts, wsOutput]);
 ### Client (`client/src/main.ts`)
 
 The client uses the Web Audio API to:
+
 1. Record audio from the microphone at 16kHz
 2. Send audio chunks over WebSocket as binary data
 3. Receive TTS audio at 24kHz and play it back
@@ -179,21 +171,25 @@ websocket-demo/
 ## Troubleshooting
 
 ### No audio playback
+
 - Check browser console for errors
 - Ensure microphone permissions are granted
 - Verify WebSocket connection is established
 
 ### No transcription
+
 - Check server logs for STT errors
 - Verify Deepgram API key is valid
 - Ensure audio is being sent (check "Sent bytes" counter)
 
 ### No AI response
+
 - Check server logs for LLM errors
 - Verify OpenAI API key is valid
 - Check for rate limiting
 
 ### No TTS audio
+
 - Check server logs for TTS errors
 - Verify Cartesia API key is valid
 - Check voice ID is valid

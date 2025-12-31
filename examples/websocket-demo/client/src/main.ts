@@ -13,7 +13,6 @@ const WS_URL = "ws://localhost:3000/ws";
 const connectBtn = document.getElementById("connect-btn") as HTMLButtonElement;
 const connectionDot = document.getElementById("connection-dot") as HTMLSpanElement;
 const connectionStatus = document.getElementById("connection-status") as HTMLSpanElement;
-const recordingStatus = document.getElementById("recording-status") as HTMLSpanElement;
 const sentBytesEl = document.getElementById("sent-bytes") as HTMLSpanElement;
 const receivedBytesEl = document.getElementById("received-bytes") as HTMLSpanElement;
 const messagesEl = document.getElementById("messages") as HTMLDivElement;
@@ -43,16 +42,30 @@ function logMessage(
   const time = now.toLocaleTimeString();
 
   const messageDiv = document.createElement("div");
-  messageDiv.className = `message ${type}`;
+
+  // Base classes for all messages (dark mode)
+  const baseClasses = "p-3 rounded-lg border-l-4";
+
+  // Type-specific Tailwind classes (dark mode - high visibility)
+  const typeClasses: Record<string, string> = {
+    info: "bg-gray-700 border-amber-400 text-amber-300",
+    sent: "bg-gray-700 border-green-400 text-green-300",
+    received: "bg-gray-700 border-blue-400 text-blue-300",
+    error: "bg-gray-700 border-red-400 text-red-300",
+    transcription: "bg-gray-700 border-green-400 text-green-300",
+    bot: "bg-gray-700 border-blue-400 text-blue-300",
+  };
+
+  messageDiv.className = `${baseClasses} ${typeClasses[type] || typeClasses.info}`;
 
   let prefix = "";
   if (type === "transcription") {
-    prefix = '<span class="message-prefix">You:</span> ';
+    prefix = '<span class="font-bold text-green-400">You:</span> ';
   } else if (type === "bot") {
-    prefix = '<span class="message-prefix">Bot:</span> ';
+    prefix = '<span class="font-bold text-blue-400">Bot:</span> ';
   }
 
-  messageDiv.innerHTML = `<span class="message-time">${time}</span>${prefix}${text}`;
+  messageDiv.innerHTML = `<span class="text-gray-500 text-xs mr-2">${time}</span>${prefix}${text}`;
 
   messagesEl.appendChild(messageDiv);
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -62,13 +75,26 @@ function logMessage(
  * Update connection status UI
  */
 function updateConnectionStatus(status: "disconnected" | "connecting" | "connected"): void {
-  connectionDot.className = `dot ${status}`;
+  // Update dot color using Tailwind classes
+  connectionDot.className = "w-4 h-4 rounded-full shrink-0";
+  if (status === "disconnected") {
+    connectionDot.classList.add("bg-red-500");
+  } else if (status === "connecting") {
+    connectionDot.classList.add("bg-yellow-500", "animate-pulse-custom");
+  } else {
+    connectionDot.classList.add("bg-green-500");
+  }
+
   connectionStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
 
   if (status === "connected") {
     connectBtn.textContent = "Disconnect";
+    connectBtn.className =
+      "w-full bg-gray-700 text-red-400 font-semibold rounded-lg px-6 py-4 hover:bg-gray-600 transition-all border border-red-400/50";
   } else if (status === "disconnected") {
     connectBtn.textContent = "Connect";
+    connectBtn.className =
+      "w-full bg-gray-700 text-gray-100 font-semibold rounded-lg px-6 py-4 hover:bg-gray-600 transition-all border border-gray-600";
     stopRecording();
   } else {
     connectBtn.disabled = true;
@@ -132,7 +158,10 @@ async function connect(): Promise<void> {
             logMessage(`${JSON.stringify(message.data)}`, "received");
           }
         } else if (message.type === "transcription") {
-          logMessage(message.data.text, "transcription");
+          // Only show final transcriptions, not interim results
+          if (message.data.final) {
+            logMessage(message.data.text, "transcription");
+          }
         } else if (message.type === "bot_response") {
           logMessage(message.data.text, "bot");
         } else {
@@ -354,11 +383,6 @@ async function startRecording() {
           audioChunkCount++;
         }
 
-        // Warn if audio is silent
-        if (audioChunkCount === 5 && maxAmplitude < 0.001) {
-          console.warn("[Audio Debug] WARNING: Audio appears to be silent! Check microphone.");
-        }
-
         ws.send(int16Data);
         sentBytes += int16Data.length;
         sentBytesEl.textContent = sentBytes.toString();
@@ -369,7 +393,6 @@ async function startRecording() {
     source.connect(audioWorklet);
 
     isRecording = true;
-    recordingStatus.textContent = "Yes";
     logMessage("Started recording - speak into your microphone", "info");
   } catch (error) {
     logMessage(`Error starting recording: ${error}`, "error");
@@ -394,7 +417,6 @@ function stopRecording() {
   }
 
   isRecording = false;
-  recordingStatus.textContent = "No";
   logMessage("Stopped recording", "info");
 }
 
