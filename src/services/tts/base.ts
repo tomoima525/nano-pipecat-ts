@@ -117,6 +117,9 @@ export abstract class TTSService extends FrameProcessor {
         return;
       }
 
+      // Pass the TextFrame downstream first (for transport to send as bot_response)
+      await this.pushFrame(frame, "downstream");
+
       // Signal TTS start
       await this.pushFrame(new TTSStartedFrame(), "downstream");
 

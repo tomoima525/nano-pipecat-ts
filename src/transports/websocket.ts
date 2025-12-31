@@ -15,6 +15,7 @@ import {
   OutputTransportMessageFrame,
   TranscriptionFrame,
   InterimTranscriptionFrame,
+  TextFrame,
 } from "../frames/data";
 import { FrameProcessor } from "../processors/base";
 import {
@@ -181,6 +182,18 @@ export class WebSocketServerOutputTransport extends BaseOutputTransport {
         },
       });
       return;
+    }
+
+    // Handle text frames (bot responses) - send as bot_response message
+    // Note: TextFrame is also the parent of TranscriptionFrame, so check this after transcription handling
+    if (this.sendTranscriptions && frame instanceof TextFrame) {
+      await this.transport.sendMessage({
+        type: "bot_response",
+        data: {
+          text: frame.text,
+        },
+      });
+      // Don't return - let the frame continue downstream to TTS
     }
 
     // Handle output message frames

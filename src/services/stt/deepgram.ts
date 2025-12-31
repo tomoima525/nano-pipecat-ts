@@ -105,7 +105,7 @@ export class DeepgramSTTService extends STTService {
     this.connection = this.client.listen.live(liveOptions);
     if (this.keepAlive) clearInterval(this.keepAlive);
     this.keepAlive = setInterval(() => {
-      console.log("KeepAlive sent.");
+      this.log("KeepAlive sent.");
       this.connection?.keepAlive?.();
     }, 3000);
 
@@ -122,7 +122,7 @@ export class DeepgramSTTService extends STTService {
     // Handle connection open
     this.connection.on(LiveTranscriptionEvents.Open, () => {
       // Connection established, ready to receive audio
-      console.log("[Deepgram Debug] Connection opened with config:", {
+      this.log("Connection opened with config:", {
         model: this.model,
         encoding: this.encoding,
         sampleRate: this.sampleRate,
@@ -133,20 +133,13 @@ export class DeepgramSTTService extends STTService {
 
     // Handle transcription results
     this.connection.on(LiveTranscriptionEvents.Transcript, (data: LiveTranscriptionEvent) => {
-      const transcript = data.channel?.alternatives?.[0]?.transcript ?? "";
-      console.log("[Deepgram Debug] Transcription received:", {
-        transcript: transcript || "(empty)",
-        isFinal: data.is_final,
-        speechFinal: data.speech_final,
-        confidence: data.channel?.alternatives?.[0]?.confidence,
-      });
       this.handleTranscript(data);
     });
 
     // Handle connection close
     this.connection.on(LiveTranscriptionEvents.Close, () => {
       // Connection closed
-      console.log("Deepgram connection closed");
+      this.log("Deepgram connection closed");
       if (this.keepAlive) clearInterval(this.keepAlive);
       this.keepAlive = null;
     });
@@ -157,8 +150,7 @@ export class DeepgramSTTService extends STTService {
     });
 
     this.connection.on(LiveTranscriptionEvents.Unhandled, (data: unknown) => {
-      console.log("Deepgram unhandled event received");
-      console.log(data);
+      this.log("Deepgram unhandled event received", { data });
     });
   }
 
@@ -176,7 +168,7 @@ export class DeepgramSTTService extends STTService {
     // Determine if this is an interim or final result
     const isFinal = data.is_final ?? false;
     const speechFinal = data.speech_final ?? false;
-    console.log("Transcript:", transcript, "Is final:", isFinal, "Speech final:", speechFinal);
+    this.log(`Transcript: ${transcript} Is final: ${isFinal} Speech final: ${speechFinal}`);
     // Push the transcription result
     this.pushTranscriptionResult({
       text: transcript,
@@ -195,13 +187,13 @@ export class DeepgramSTTService extends STTService {
    */
   protected async runSTT(audio: Uint8Array, _frame: InputAudioRawFrame): Promise<void> {
     if (!this.connection) {
-      console.log("[Deepgram Debug] No connection, skipping audio");
+      this.log("No connection, skipping audio");
       return;
     }
 
     // Log first few sends for debugging
     if (this.audioSendCount < 3) {
-      console.log(`[Deepgram Debug] Sending audio chunk ${this.audioSendCount}:`, {
+      this.log(`Sending audio chunk ${this.audioSendCount}:`, {
         audioBytes: audio.length,
         byteOffset: audio.byteOffset,
         bufferByteLength: audio.buffer.byteLength,

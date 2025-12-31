@@ -488,9 +488,9 @@ export abstract class FrameProcessor {
   /**
    * Log a message if logging is enabled
    */
-  private log(message: string): void {
+  protected log(message: string, data?: Record<string, unknown>): void {
     if (this.enableLogging) {
-      console.log(`[${this.name}] ${message}`);
+      console.log(`[${this.name}] ${message}`, data);
     }
   }
 

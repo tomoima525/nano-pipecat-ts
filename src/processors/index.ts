@@ -9,12 +9,4 @@ export {
   resetProcessorIdCounter,
 } from "./base";
 
-export {
-  AudioBufferProcessor,
-  type AudioBufferProcessorOptions,
-} from "./audioBuffer";
-
-export {
-  SimpleVADProcessor,
-  type SimpleVADProcessorOptions,
-} from "./vad";
+export { SimpleVADProcessor, type SimpleVADProcessorOptions } from "./vad";

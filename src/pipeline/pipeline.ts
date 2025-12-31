@@ -44,7 +44,6 @@ export interface PipelineOptions extends FrameProcessorOptions {
  * @example
  * ```typescript
  * const pipeline = new Pipeline([
- *   new AudioProcessor(),
  *   new TranscriptionProcessor(),
  *   new LLMProcessor(),
  *   new TTSProcessor(),

@@ -107,8 +107,6 @@ export {
   type FrameProcessorOptions,
   type FrameDirection as ProcessorFrameDirection,
   resetProcessorIdCounter,
-  AudioBufferProcessor,
-  type AudioBufferProcessorOptions,
   SimpleVADProcessor,
   type SimpleVADProcessorOptions,
 } from "./processors";
