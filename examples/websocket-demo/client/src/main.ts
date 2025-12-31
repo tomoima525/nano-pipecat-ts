@@ -160,7 +160,7 @@ async function connect(): Promise<void> {
       receivedBytesEl.textContent = receivedBytes.toString();
 
       // Highlight TTS stage when audio is received
-      highlightStage(stageTTS, 1000);
+      highlightStage(stageTTS, 100);
 
       // Convert to Float32Array for playback (TTS is 24kHz)
       const float32Data = int16ToFloat32(audioData);
@@ -291,9 +291,6 @@ function playNextChunk(): void {
   if (!audioData) return;
   if (!outputAudioContext) return;
 
-  // Highlight Output stage when audio is played
-  highlightStage(stageOutput, 1000);
-
   const buffer = outputAudioContext.createBuffer(
     1,
     audioData?.length ?? 0,
@@ -306,6 +303,8 @@ function playNextChunk(): void {
   source.connect(outputAudioContext.destination);
   source.onended = playNextChunk;
   source.start();
+  // Highlight Output stage when audio is played
+  highlightStage(stageOutput, 1000);
 }
 
 /**
@@ -413,8 +412,10 @@ async function startRecording() {
         sentBytes += int16Data.length;
         sentBytesEl.textContent = sentBytes.toString();
 
-        // Highlight Input stage when audio is sent
-        highlightStage(stageInput);
+        // Highlight Input stage only when audio has meaningful amplitude
+        if (maxAmplitude > 0.4) {
+          highlightStage(stageInput);
+        }
       }
     };
 
