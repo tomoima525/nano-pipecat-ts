@@ -5,11 +5,11 @@
  * to build a processing pipeline.
  */
 
-import { FrameProcessor } from "../src/processors/base";
-import { Frame } from "../src/frames/base";
-import { StartFrame, CancelFrame } from "../src/frames/system";
-import { TextFrame } from "../src/frames/data";
-import { EndFrame } from "../src/frames/control";
+import { FrameProcessor } from "../../src/processors/base";
+import { Frame } from "../../src/frames/base";
+import { StartFrame } from "../../src/frames/system";
+import { TextFrame } from "../../src/frames/data";
+import { EndFrame } from "../../src/frames/control";
 
 /**
  * Example 1: Simple text processor that converts text to uppercase
@@ -226,7 +226,7 @@ async function runErrorHandlingExample() {
 }
 
 // Run all examples
-async function main() {
+async function main(): Promise<void> {
   try {
     await runExample();
     await runBidirectionalExample();
@@ -236,5 +236,4 @@ async function main() {
   }
 }
 
-// Uncomment to run:
-// main();
+main().catch(console.error);

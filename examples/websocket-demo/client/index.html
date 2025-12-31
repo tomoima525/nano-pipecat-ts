@@ -1,48 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pipecat-TS WebSocket Demo</title>
-    <link rel="stylesheet" href="/src/style.css" />
-  </head>
-  <body>
-    <div class="container">
-      <h1>Pipecat-TS WebSocket Demo</h1>
-      <p class="description">
-        This demo connects to a WebSocket server and demonstrates real-time
-        audio streaming. Click "Connect" to start the voice conversation.
-      </p>
 
-      <div class="status-section">
-        <h2>Connection Status</h2>
-        <div class="status-indicator">
-          <span id="connection-dot" class="dot disconnected"></span>
-          <span id="connection-status">Disconnected</span>
-        </div>
-      </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pipecat-TS WebSocket Demo</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
 
-      <div class="controls">
-        <button id="connect-btn" class="btn btn-primary">Connect</button>
-      </div>
+<body>
+  <div class="container">
+    <h1>Pipecat-TS WebSocket Demo</h1>
+    <p class="description">
+      This demo connects to a WebSocket server and demonstrates real-time
+      audio streaming. Click "Connect" to start the voice conversation.
+    </p>
 
-      <div class="audio-section">
-        <h2>Audio Status</h2>
-        <div class="audio-info">
-          <p>
-            Recording: <span id="recording-status" class="status-text">No</span>
-          </p>
-          <p>Sent: <span id="sent-bytes">0</span> bytes</p>
-          <p>Received: <span id="received-bytes">0</span> bytes</p>
-        </div>
-      </div>
-
-      <div class="messages-section">
-        <h2>Messages</h2>
-        <div id="messages" class="messages-log"></div>
+    <div class="status-section">
+      <h2>Connection Status</h2>
+      <div class="status-indicator">
+        <span id="connection-dot" class="dot disconnected"></span>
+        <span id="connection-status">Disconnected</span>
       </div>
     </div>
 
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+    <div class="controls">
+      <button id="connect-btn" class="btn btn-primary">Connect</button>
+    </div>
+
+    <div class="audio-section">
+      <h2>Audio Status</h2>
+      <div class="audio-info">
+        <p>Sent: <span id="sent-bytes">0</span> bytes</p>
+        <p>Received: <span id="received-bytes">0</span> bytes</p>
+      </div>
+    </div>
+
+    <div class="messages-section">
+      <h2>Messages</h2>
+      <div id="messages" class="messages-log"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
 </html>

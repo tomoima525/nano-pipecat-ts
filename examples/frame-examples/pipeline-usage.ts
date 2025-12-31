@@ -5,14 +5,14 @@
  * multiple frame processors together.
  */
 
-import { Pipeline } from "../src/pipeline/pipeline";
-import { PipelineSource } from "../src/pipeline/source";
-import { PipelineSink } from "../src/pipeline/sink";
-import { FrameProcessor } from "../src/processors/base";
-import { Frame } from "../src/frames/base";
-import { TextFrame } from "../src/frames/data";
-import { StartFrame } from "../src/frames/system";
-import { EndFrame } from "../src/frames/control";
+import { Pipeline } from "../../src/pipeline/pipeline";
+import { PipelineSource } from "../../src/pipeline/source";
+import { PipelineSink } from "../../src/pipeline/sink";
+import { FrameProcessor } from "../../src/processors/base";
+import { Frame } from "../../src/frames/base";
+import { TextFrame } from "../../src/frames/data";
+import { StartFrame } from "../../src/frames/system";
+import { EndFrame } from "../../src/frames/control";
 
 /**
  * Example 1: Simple text processing pipeline
@@ -66,7 +66,7 @@ async function simpleTextPipeline() {
   // Create a custom sink to capture output
   const sink = new PipelineSink({
     name: "OutputSink",
-    downstreamPushFrame: async (frame) => {
+    downstreamPushFrame: async frame => {
       outputFrames.push(frame);
       if (frame instanceof TextFrame) {
         console.log(`[Output] ${frame.text}`);
@@ -97,7 +97,7 @@ async function simpleTextPipeline() {
   pipeline.queueFrame(new EndFrame());
 
   // Wait for processing
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   console.log(`\nProcessed ${outputFrames.length} frames`);
 
@@ -144,7 +144,7 @@ async function pipelineWithMetrics() {
     pipeline.queueFrame(new TextFrame(`Message ${i}`));
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   // Get metrics from processors
   const processorsWithMetrics = pipeline.getProcessorsWithMetrics();
@@ -172,7 +172,7 @@ async function bidirectionalPipeline() {
   // Custom source that handles upstream frames
   const source = new PipelineSource({
     name: "CustomSource",
-    upstreamPushFrame: async (frame) => {
+    upstreamPushFrame: async frame => {
       upstreamFrames.push(frame);
       if (frame instanceof TextFrame) {
         console.log(`[Source received upstream] ${frame.text}`);
@@ -183,7 +183,7 @@ async function bidirectionalPipeline() {
   // Custom sink that handles downstream frames
   const sink = new PipelineSink({
     name: "CustomSink",
-    downstreamPushFrame: async (frame) => {
+    downstreamPushFrame: async frame => {
       downstreamFrames.push(frame);
       if (frame instanceof TextFrame) {
         console.log(`[Sink received downstream] ${frame.text}`);
@@ -214,7 +214,7 @@ async function bidirectionalPipeline() {
   pipeline.queueFrame(new TextFrame("Hello"));
   pipeline.queueFrame(new TextFrame("World"));
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   console.log(`\nUpstream frames received: ${upstreamFrames.length}`);
   console.log(`Downstream frames received: ${downstreamFrames.length}`);
@@ -237,7 +237,9 @@ class FilterProcessor extends FrameProcessor {
 
   async processFrame(frame: Frame): Promise<void> {
     if (frame instanceof TextFrame) {
-      const hasKeyword = this.keywords.some((keyword) => frame.text.toLowerCase().includes(keyword.toLowerCase()));
+      const hasKeyword = this.keywords.some(keyword =>
+        frame.text.toLowerCase().includes(keyword.toLowerCase())
+      );
 
       if (hasKeyword) {
         console.log(`[Filter] ✓ Passed: "${frame.text}"`);
@@ -259,7 +261,7 @@ async function complexPipeline() {
 
   const sink = new PipelineSink({
     name: "OutputSink",
-    downstreamPushFrame: async (frame) => {
+    downstreamPushFrame: async frame => {
       outputFrames.push(frame);
     },
   });
@@ -285,7 +287,7 @@ async function complexPipeline() {
   pipeline.queueFrame(new TextFrame("Another regular message"));
   pipeline.queueFrame(new TextFrame("Important and urgent!"));
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   console.log(`\n\nFinal output (${outputFrames.length} frames):`);
   outputFrames.forEach((frame, i) => {
