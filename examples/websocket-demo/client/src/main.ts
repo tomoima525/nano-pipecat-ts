@@ -15,6 +15,7 @@ const connectionDot = document.getElementById("connection-dot") as HTMLSpanEleme
 const connectionStatus = document.getElementById("connection-status") as HTMLSpanElement;
 const sentBytesEl = document.getElementById("sent-bytes") as HTMLSpanElement;
 const receivedBytesEl = document.getElementById("received-bytes") as HTMLSpanElement;
+const ttfsValueEl = document.getElementById("ttfs-value") as HTMLSpanElement;
 const messagesEl = document.getElementById("messages") as HTMLDivElement;
 
 // Pipeline stage elements
@@ -37,6 +38,10 @@ let receivedBytes = 0;
 // Audio playback queue
 const audioPlaybackQueue: Float32Array[] = [];
 let isPlaying = false;
+
+// Time to first speech tracking
+let speechStartTime: number | null = null;
+let waitingForResponse = false;
 
 /**
  * Log a message to the messages panel
@@ -158,6 +163,14 @@ async function connect(): Promise<void> {
       const audioData = new Uint8Array(event.data);
       receivedBytes += audioData.length;
       receivedBytesEl.textContent = receivedBytes.toString();
+
+      // Calculate TTFS when first audio response is received
+      if (waitingForResponse && speechStartTime !== null) {
+        const ttfs = Math.round(performance.now() - speechStartTime);
+        ttfsValueEl.textContent = ttfs.toString();
+        waitingForResponse = false;
+        speechStartTime = null;
+      }
 
       // Highlight TTS stage when audio is received
       highlightStage(stageTTS, 100);
@@ -413,8 +426,13 @@ async function startRecording() {
         sentBytesEl.textContent = sentBytes.toString();
 
         // Highlight Input stage only when audio has meaningful amplitude
-        if (maxAmplitude > 0.4) {
+        if (maxAmplitude > 0.3) {
           highlightStage(stageInput);
+          // Start TTFS timer when first audio chunk is sent
+          if (!waitingForResponse) {
+            speechStartTime = performance.now();
+            waitingForResponse = true;
+          }
         }
       }
     };
