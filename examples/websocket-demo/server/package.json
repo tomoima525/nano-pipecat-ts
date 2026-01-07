@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:xai": "tsx watch src/xai-server.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "start:xai": "node dist/xai-server.js"
   },
   "dependencies": {
     "@hono/node-ws": "^1.0.4",
