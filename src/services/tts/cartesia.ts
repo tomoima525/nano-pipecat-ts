@@ -1,6 +1,32 @@
 import { CartesiaClient, Cartesia } from "@cartesia/cartesia-js";
-import { TTSService, TTSResult, type TTSServiceOptions } from "./base";
+import { TTSService, type TTSServiceOptions } from "./base";
 import { type Language } from "../../frames/data";
+
+/**
+ * Phoneme timing information from Cartesia TTS.
+ */
+export interface PhonemeTimestamps {
+  /** Array of phoneme symbols */
+  phonemes: string[];
+  /** Start time in seconds for each phoneme */
+  start: number[];
+  /** End time in seconds for each phoneme */
+  end: number[];
+}
+
+/**
+ * Result returned by Cartesia TTS synthesis.
+ */
+export interface CartesiaTTSResult {
+  /** Raw PCM audio data */
+  audio: Uint8Array;
+  /** Sample rate of the audio */
+  sampleRate: number;
+  /** Number of channels */
+  numChannels: number;
+  /** Phoneme timestamps if requested */
+  phonemeTimestamps?: PhonemeTimestamps;
+}
 
 /**
  * Supported Cartesia voice models.
@@ -73,6 +99,13 @@ export interface CartesiaTTSOptions extends Omit<TTSServiceOptions, "voiceId" | 
   sampleRate?: number;
   /** Audio encoding format (default: pcm_s16le) */
   encoding?: CartesiaEncoding;
+  /**
+   * Whether to return phoneme-level timestamps.
+   * When enabled, the synthesis result will include timing information for each phoneme.
+   * This is useful for lip-sync animations and other phoneme-based applications.
+   * Note: Enabling this option uses the SSE streaming endpoint instead of the bytes endpoint.
+   */
+  addPhonemeTimestamps?: boolean;
 }
 
 /**
@@ -94,6 +127,10 @@ export class CartesiaTTSService extends TTSService {
   private readonly cartesiaLanguage?: Cartesia.SupportedLanguage;
   private readonly sampleRate: number;
   private readonly encoding: CartesiaEncoding;
+  private readonly addPhonemeTimestamps: boolean;
+
+  /** The most recent phoneme timestamps from the last synthesis */
+  private _lastPhonemeTimestamps?: PhonemeTimestamps;
 
   constructor(options: CartesiaTTSOptions) {
     const sampleRate = options.sampleRate ?? 24000;
@@ -112,6 +149,15 @@ export class CartesiaTTSService extends TTSService {
     this.cartesiaLanguage = options.language as Cartesia.SupportedLanguage | undefined;
     this.sampleRate = sampleRate;
     this.encoding = options.encoding ?? "pcm_s16le";
+    this.addPhonemeTimestamps = options.addPhonemeTimestamps ?? false;
+  }
+
+  /**
+   * Get the phoneme timestamps from the last synthesis.
+   * Only available when addPhonemeTimestamps option is enabled.
+   */
+  get lastPhonemeTimestamps(): PhonemeTimestamps | undefined {
+    return this._lastPhonemeTimestamps;
   }
 
   /**
@@ -120,7 +166,22 @@ export class CartesiaTTSService extends TTSService {
    * @param text - The text to synthesize
    * @returns Promise resolving to TTS result with audio data
    */
-  protected async runTTS(text: string): Promise<TTSResult> {
+  protected async runTTS(text: string): Promise<CartesiaTTSResult> {
+    // Clear previous phoneme timestamps
+    this._lastPhonemeTimestamps = undefined;
+
+    // Use SSE endpoint when phoneme timestamps are requested
+    if (this.addPhonemeTimestamps) {
+      return this.runTTSWithSSE(text);
+    }
+
+    return this.runTTSWithBytes(text);
+  }
+
+  /**
+   * Synthesize text using the bytes endpoint (faster, no timestamps).
+   */
+  private async runTTSWithBytes(text: string): Promise<CartesiaTTSResult> {
     const request: Cartesia.TtsRequest = {
       modelId: this.model,
       transcript: text,
@@ -149,6 +210,67 @@ export class CartesiaTTSService extends TTSService {
       audio,
       sampleRate: this.sampleRate,
       numChannels: 1,
+    };
+  }
+
+  /**
+   * Synthesize text using the SSE endpoint (supports phoneme timestamps).
+   */
+  private async runTTSWithSSE(text: string): Promise<CartesiaTTSResult> {
+    const request: Cartesia.TtssseRequest = {
+      modelId: this.model,
+      transcript: text,
+      voice: {
+        mode: "id",
+        id: this.voiceId!,
+      },
+      outputFormat: {
+        container: "raw",
+        encoding: this.encoding,
+        sampleRate: this.sampleRate,
+      },
+      addPhonemeTimestamps: true,
+      ...(this.cartesiaLanguage && { language: this.cartesiaLanguage }),
+    };
+
+    const stream = await this.client.tts.sse(request);
+
+    // Collect audio chunks and phoneme timestamps from the stream
+    const audioChunks: Buffer[] = [];
+    const allPhonemes: string[] = [];
+    const allStarts: number[] = [];
+    const allEnds: number[] = [];
+
+    for await (const event of stream) {
+      if (event.type === "chunk" && event.data) {
+        // Audio chunk - data is base64 encoded
+        const audioData = Buffer.from(event.data as string, "base64");
+        audioChunks.push(audioData);
+      } else if (event.type === "phoneme_timestamps" && event.phonemeTimestamps) {
+        // Phoneme timestamps event
+        const timestamps = event.phonemeTimestamps;
+        allPhonemes.push(...timestamps.phonemes);
+        allStarts.push(...timestamps.start);
+        allEnds.push(...timestamps.end);
+      }
+    }
+
+    const audio = new Uint8Array(Buffer.concat(audioChunks));
+
+    // Store phoneme timestamps if we received any
+    if (allPhonemes.length > 0) {
+      this._lastPhonemeTimestamps = {
+        phonemes: allPhonemes,
+        start: allStarts,
+        end: allEnds,
+      };
+    }
+
+    return {
+      audio,
+      sampleRate: this.sampleRate,
+      numChannels: 1,
+      phonemeTimestamps: this._lastPhonemeTimestamps,
     };
   }
 }
