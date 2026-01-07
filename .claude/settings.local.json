@@ -16,7 +16,8 @@
       "Bash(pnpm add:*)",
       "WebFetch(domain:docs.cartesia.ai)",
       "Bash(cat:*)",
-      "Bash(pnpm test:unit:*)"
+      "Bash(pnpm test:unit:*)",
+      "Bash(gh api:*)"
     ],
     "deny": [],
     "ask": []
