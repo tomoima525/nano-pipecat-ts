@@ -80,7 +80,7 @@ function createXAIVoiceAgentSession(ws: WSContext): Session {
   const transport = new WebSocketServerTransport({
     ws,
     params: {
-      audioIn: { enabled: true, sampleRate: 24000, numChannels: 1, chunkSizeMs: 20 },
+      audioIn: { enabled: true, sampleRate: 16000, numChannels: 1, chunkSizeMs: 20 },
       audioOut: { enabled: true, sampleRate: 24000, numChannels: 1, chunkSizeMs: 20 },
     },
   });
@@ -145,7 +145,6 @@ app.get(
         if (!session) return;
 
         const data = event.data;
-
         if (data instanceof ArrayBuffer) {
           // Binary data - audio
           const audioData = new Uint8Array(data);

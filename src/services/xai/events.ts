@@ -69,8 +69,8 @@ export interface SessionProperties {
   instructions?: string;
   /** Voice for audio responses (default: "Ara") */
   voice?: XAIVoice;
-  /** Turn detection mode (default: server_vad) */
-  turnDetection?: TurnDetection;
+  /** Turn detection mode (default: server_vad) - uses snake_case for API */
+  turn_detection?: TurnDetection;
   /** Audio configuration for input/output */
   audio?: AudioConfiguration;
 }

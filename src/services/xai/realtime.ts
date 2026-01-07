@@ -40,9 +40,9 @@ const DEFAULT_BASE_URL = "wss://api.x.ai/v1/realtime";
 /** Default session properties */
 const DEFAULT_SESSION_PROPERTIES: SessionProperties = {
   voice: "Ara",
-  turnDetection: { type: "server_vad" },
+  turn_detection: { type: "server_vad" },
   audio: {
-    input: { format: { type: "audio/pcm", rate: 24000 } },
+    input: { format: { type: "audio/pcm", rate: 16000 } },
     output: { format: { type: "audio/pcm", rate: 24000 } },
   },
 };
@@ -499,7 +499,7 @@ export class XAIRealtimeLLMService extends FrameProcessor {
    */
   private async handleUserStartedSpeaking(): Promise<void> {
     // If using manual VAD mode and bot is speaking, handle interruption
-    if (this.sessionProperties.turnDetection?.type === null && this.botIsSpeaking) {
+    if (this.sessionProperties.turn_detection?.type === null && this.botIsSpeaking) {
       await this.handleInterruption();
     }
   }
@@ -509,7 +509,7 @@ export class XAIRealtimeLLMService extends FrameProcessor {
    */
   private async handleUserStoppedSpeaking(): Promise<void> {
     // In manual VAD mode, commit buffer and create response
-    if (this.sessionProperties.turnDetection?.type === null) {
+    if (this.sessionProperties.turn_detection?.type === null) {
       await this.sendEvent({
         type: "input_audio_buffer.commit",
         event_id: this.generateEventId(),
